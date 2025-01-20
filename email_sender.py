@@ -1,9 +1,5 @@
 # email_sender.py
 
-"""
-Arquivo responsável pelo envio de e-mails usando SMTP.
-"""
-
 import os
 import smtplib
 from email.mime.text import MIMEText
@@ -17,13 +13,9 @@ class EmailSender:
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
         self.sender_email = sender_email
-        # Lê a senha de e-mail da variável de ambiente
         self.sender_password = os.getenv(EMAIL_PASSWORD_ENV)
 
     def send_email(self, recipient, subject, body):
-        """
-        Envia um e-mail com assunto e corpo simples (texto plano).
-        """
         try:
             msg = MIMEMultipart()
             msg['From'] = self.sender_email
@@ -31,7 +23,6 @@ class EmailSender:
             msg['Subject'] = subject
             msg.attach(MIMEText(body, 'plain'))
 
-            # Envia o email
             server = smtplib.SMTP(self.smtp_server, self.smtp_port)
             server.starttls()
             server.login(self.sender_email, self.sender_password)
