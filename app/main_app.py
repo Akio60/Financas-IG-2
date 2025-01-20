@@ -257,8 +257,8 @@ class App:
 
     def setup_welcome_screen(self):
         try:
-            img_ig = Image.open('logo_unicamp.png')
-            img_unicamp = Image.open('logo_ig.png')
+            img_ig = Image.open('images/logo_unicamp.png')
+            img_unicamp = Image.open('images/logo_ig.png')
 
             img_ig = img_ig.resize((100, 100), Image.LANCZOS)
             img_unicamp = img_unicamp.resize((100, 100), Image.LANCZOS)
