@@ -5,7 +5,7 @@ from ttkbootstrap.constants import *
 from tkinter import Text, messagebox
 from datetime import datetime
 
-# Dicionário que mapeia colunas originais do Form -> rótulos amigáveis
+# Mapeamento de colunas do forms -> máscaras amigáveis
 FORM_FIELD_MAPPING = {
     'Nome completo (sem abreviações):': 'Nome do Solicitante',
     'Endereço de e-mail': 'E-mail Pessoal',
@@ -34,11 +34,16 @@ class DetailsManager:
 
     def show_details_in_place(self, row_data):
         """
-        Substitui o frame da tabela por um frame de detalhes (Notebook).
-        Exibe 4 abas: Informações Pessoais, Acadêmicas, Detalhes da Solicitação,
-        e Informações Financeiras. Usa 'FORM_FIELD_MAPPING' para renomear campos.
+        Substitui a tabela por um frame Notebook contendo:
+          - Informações Pessoais
+          - Informações Acadêmicas
+          - Detalhes da Solicitação
+          - Informações Financeiras
+          - Histórico de solicitações
+          - Ações (caso pendências ou pronto pagamento)
+        E alinha todos os campos no modo sticky='w' (à esquerda).
         """
-        # Esconder o frame da tabela
+        # Esconder a tabela
         self.app.table_frame.pack_forget()
 
         self.app.details_frame = tb.Frame(self.app.content_frame)
@@ -51,11 +56,10 @@ class DetailsManager:
         )
         self.app.details_title_label.pack(pady=10)
 
-        # Notebook
         notebook = tb.Notebook(self.app.details_frame, bootstyle=PRIMARY)
         notebook.pack(fill=BOTH, expand=True)
 
-        # Define abas e campos
+        # Seções
         sections = {
             "Informações Pessoais": [
                 'Nome completo (sem abreviações):',
@@ -86,29 +90,28 @@ class DetailsManager:
             ],
         }
 
+        # Criar as 4 abas
         for section_name, fields in sections.items():
             tab_frame = tb.Frame(notebook)
             notebook.add(tab_frame, text=section_name)
 
+            # Configurar colunas
             tab_frame.columnconfigure(0, weight=1, minsize=200)
             tab_frame.columnconfigure(1, weight=3)
 
             row_idx = 0
             for col in fields:
                 if col in row_data:
-                    # Usa a máscara do dicionário se existir
                     display_label = FORM_FIELD_MAPPING.get(col, col)
-
                     label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
-                    label.grid(row=row_idx, column=0, sticky='nw', padx=10, pady=5)
+                    label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
 
                     value_text = str(row_data[col])
                     value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
-                    value.grid(row=row_idx, column=1, sticky='nw', padx=10, pady=5)
+                    value.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
                     row_idx += 1
 
-            # Se for a aba de Informações Financeiras e status == ''
-            # exibir botões de autorizar/negar
+            # Se for Informações Financeiras e status=='', inserir autorizar/negar
             if section_name == "Informações Financeiras" and row_data['Status'] == '':
                 value_label = tb.Label(tab_frame, text="Valor (R$):", font=("Helvetica", 12, "bold"))
                 value_label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
@@ -121,7 +124,7 @@ class DetailsManager:
                 def autorizar_auxilio():
                     new_value = self.app.value_entry.get().strip()
                     if not new_value:
-                        messagebox.showwarning("Aviso", "Por favor, insira um valor antes de autorizar o auxílio.")
+                        messagebox.showwarning("Aviso", "Por favor, insira um valor.")
                         return
                     new_status = 'Autorizado'
                     timestamp_str = row_data['Carimbo de data/hora']
@@ -156,14 +159,50 @@ class DetailsManager:
                 autorizar_button.grid(row=row_idx, column=0, padx=10, pady=10, sticky='w')
                 negar_button.grid(row=row_idx, column=1, padx=10, pady=10, sticky='w')
 
-        # Adicionar abas extras (Ações, Histórico)
-        self.add_actions_tab(notebook, row_data)
+        # Primeiro adicionamos a aba de histórico
         self.add_history_tab(notebook, row_data)
+        # Depois a aba de ações (será a última)
+        self.add_actions_tab(notebook, row_data)
 
-        # Mostrar botão "Voltar"
         self.app.back_button.pack(side='bottom', pady=20)
 
+    def add_history_tab(self, notebook, row_data):
+        """
+        Aba "Histórico de solicitações"
+        """
+        history_tab = tb.Frame(notebook)
+        # Adiciona com texto "Histórico de solicitações"
+        notebook.add(history_tab, text="Histórico de Solicitações")
+
+        cpf = str(row_data.get('CPF:', '')).strip()
+        all_data = self.app.sheets_handler.load_data()
+        all_data['CPF:'] = all_data['CPF:'].astype(str).str.strip()
+        history_data = all_data[all_data['CPF:'] == cpf]
+
+        history_columns = ['Carimbo de data/hora', 'Ultima Atualizacao', 'Valor', 'Status']
+        history_tree = tb.Treeview(history_tab, columns=history_columns, show='headings', height=10)
+        history_tree.pack(fill=BOTH, expand=True)
+
+        for col in history_columns:
+            history_tree.heading(
+                col,
+                text=col,
+                command=lambda _col=col: self.app.treeview_sort_column(history_tree, _col, False)
+            )
+            history_tree.column(col, anchor='center', width=120)
+
+        self.app.history_tree_data = history_data.copy()
+
+        for idx, hist_row in history_data.iterrows():
+            values = [hist_row[col] for col in history_columns]
+            history_tree.insert("", "end", iid=str(idx), values=values)
+
+        history_tree.bind("<Double-1>", self.on_history_treeview_click)
+
     def add_actions_tab(self, notebook, row_data):
+        """
+        Aba "Ações" fica por último, só aparece se for Pendências ou Pronto p/ Pagamento
+        """
         if self.app.current_view in ["Pendências", "Pronto para pagamento"]:
             actions_tab = tb.Frame(notebook)
             notebook.add(actions_tab, text="Ações")
@@ -281,35 +320,6 @@ class DetailsManager:
                 )
                 cancel_button.pack(pady=10)
 
-    def add_history_tab(self, notebook, row_data):
-        history_tab = tb.Frame(notebook)
-        notebook.add(history_tab, text="Histórico de solicitações")
-
-        cpf = str(row_data.get('CPF:', '')).strip()
-        all_data = self.app.sheets_handler.load_data()
-        all_data['CPF:'] = all_data['CPF:'].astype(str).str.strip()
-        history_data = all_data[all_data['CPF:'] == cpf]
-
-        history_columns = ['Carimbo de data/hora', 'Ultima Atualizacao', 'Valor', 'Status']
-        history_tree = tb.Treeview(history_tab, columns=history_columns, show='headings', height=10)
-        history_tree.pack(fill=BOTH, expand=True)
-
-        for col in history_columns:
-            history_tree.heading(
-                col,
-                text=col,
-                command=lambda _col=col: self.app.treeview_sort_column(history_tree, _col, False)
-            )
-            history_tree.column(col, anchor='center', width=100)
-
-        self.app.history_tree_data = history_data.copy()
-
-        for idx, hist_row in history_data.iterrows():
-            values = [hist_row[col] for col in history_columns]
-            history_tree.insert("", "end", iid=str(idx), values=values)
-
-        history_tree.bind("<Double-1>", self.on_history_treeview_click)
-
     def on_history_treeview_click(self, event):
         selected_item = event.widget.selection()
         if selected_item:
@@ -318,6 +328,9 @@ class DetailsManager:
             self.show_details_in_new_window(selected_row)
 
     def show_details_in_new_window(self, row_data):
+        """
+        Exibe detalhes do histórico em nova janela
+        """
         detail_window = tb.Toplevel(self.app.root)
         detail_window.title("Detalhes da Solicitação")
         detail_window.geometry("800x600")
@@ -335,7 +348,6 @@ class DetailsManager:
         notebook = tb.Notebook(detail_frame, bootstyle=PRIMARY)
         notebook.pack(fill=BOTH, expand=True)
 
-        # Mesma lógica do show_details_in_place, mas sem botões de autorizar/recusar
         sections = {
             "Informações Pessoais": [
                 'Nome completo (sem abreviações):',
@@ -378,28 +390,20 @@ class DetailsManager:
                 if col in row_data:
                     display_label = FORM_FIELD_MAPPING.get(col, col)
                     label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
-                    label.grid(row=row_idx, column=0, sticky='nw', padx=10, pady=5)
+                    label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
 
                     value_text = str(row_data[col])
                     value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
-                    value.grid(row=row_idx, column=1, sticky='nw', padx=10, pady=5)
+                    value.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
                     row_idx += 1
 
         close_button = tb.Button(detail_frame, text="Fechar", bootstyle=PRIMARY, command=detail_window.destroy)
         close_button.pack(pady=10)
 
-    # Métodos de envio de email (ask_send_email e send_custom_email) continuam iguais
-    # ...
-
-
     # -------------------------------------------------
-    # Métodos de Envio de Email usados nestas rotinas
+    # Métodos de Envio de Email
     # -------------------------------------------------
-
     def ask_send_email(self, row_data, new_status, new_value=None):
-        """
-        Pergunta se deseja enviar email notificando mudança de status.
-        """
         confirm = messagebox.askyesno("Enviar E-mail", "Deseja enviar um e-mail notificando a alteração de status?")
         if confirm:
             email_window = tb.Toplevel(self.app.root)
@@ -442,9 +446,6 @@ class DetailsManager:
             send_button.pack(pady=10)
 
     def send_custom_email(self, recipient, subject, body):
-        """
-        Abre janela para editar/enviar e-mail customizado.
-        """
         email_window = tb.Toplevel(self.app.root)
         email_window.title("Enviar E-mail")
 
