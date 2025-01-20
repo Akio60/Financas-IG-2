@@ -1,22 +1,42 @@
-# app/details_manager.py
+# details_manager.py
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from tkinter import Text, messagebox
 from datetime import datetime
 
+# Dicionário que mapeia colunas originais do Form -> rótulos amigáveis
+FORM_FIELD_MAPPING = {
+    'Nome completo (sem abreviações):': 'Nome do Solicitante',
+    'Endereço de e-mail': 'E-mail Pessoal',
+    'Telefone de contato:': 'Telefone Principal',
+    'CPF:': 'CPF do Aluno',
+    'RG/RNE:': 'Documento de Identidade',
+    'Endereço completo (logradouro, número, bairro, cidade e estado)': 'Endereço Residencial',
+    'Ano de ingresso o PPG:': 'Ano de Ingresso no Programa',
+    'Curso:': 'Curso Matriculado',
+    'Orientador': 'Professor Orientador',
+    'Possui bolsa?': 'Possui Bolsa?',
+    'Qual a agência de fomento?': 'Agência de Fomento',
+    'Título do projeto do qual participa:': 'Título do Projeto',
+    'Motivo da solicitação': 'Motivo do Pedido',
+    'Nome do evento ou, se atividade de campo, motivos da realização\n* caso não se trate de evento ou viagem de campo, preencher N/A': 'Nome do Evento/Atividade',
+    'Local de realização do evento': 'Local do Evento',
+    'Período de realização da atividade. Indique as datas (dd/mm/aaaa)': 'Período da Atividade',
+    'Descrever detalhadamente os itens a serem financiados. Por ex: inscrição em evento, diárias ...': 'Itens a Financiar',
+    'Valor': 'Valor Solicitado (R$)',
+    'Dados bancários (banco, agência e conta) ': 'Dados Bancários'
+}
+
 class DetailsManager:
     def __init__(self, app):
-        """
-        Recebe a instância principal de 'App' para poder acessar
-        dados como 'app.sheets_handler', 'app.root', etc.
-        """
         self.app = app
 
     def show_details_in_place(self, row_data):
         """
-        Substitui o frame da tabela pelo frame de detalhes (Notebook),
-        exibindo as informações em abas.
+        Substitui o frame da tabela por um frame de detalhes (Notebook).
+        Exibe 4 abas: Informações Pessoais, Acadêmicas, Detalhes da Solicitação,
+        e Informações Financeiras. Usa 'FORM_FIELD_MAPPING' para renomear campos.
         """
         # Esconder o frame da tabela
         self.app.table_frame.pack_forget()
@@ -35,7 +55,7 @@ class DetailsManager:
         notebook = tb.Notebook(self.app.details_frame, bootstyle=PRIMARY)
         notebook.pack(fill=BOTH, expand=True)
 
-        # Definir seções
+        # Define abas e campos
         sections = {
             "Informações Pessoais": [
                 'Nome completo (sem abreviações):',
@@ -66,7 +86,6 @@ class DetailsManager:
             ],
         }
 
-        # Criar abas
         for section_name, fields in sections.items():
             tab_frame = tb.Frame(notebook)
             notebook.add(tab_frame, text=section_name)
@@ -77,14 +96,19 @@ class DetailsManager:
             row_idx = 0
             for col in fields:
                 if col in row_data:
-                    label = tb.Label(tab_frame, text=f"{col}:", font=("Helvetica", 12, "bold"))
+                    # Usa a máscara do dicionário se existir
+                    display_label = FORM_FIELD_MAPPING.get(col, col)
+
+                    label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
                     label.grid(row=row_idx, column=0, sticky='nw', padx=10, pady=5)
 
-                    value = tb.Label(tab_frame, text=str(row_data[col]), font=("Helvetica", 12))
+                    value_text = str(row_data[col])
+                    value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
                     value.grid(row=row_idx, column=1, sticky='nw', padx=10, pady=5)
                     row_idx += 1
 
-            # Caso o status esteja vazio, exibir opções de autorizar/negar
+            # Se for a aba de Informações Financeiras e status == ''
+            # exibir botões de autorizar/negar
             if section_name == "Informações Financeiras" and row_data['Status'] == '':
                 value_label = tb.Label(tab_frame, text="Valor (R$):", font=("Helvetica", 12, "bold"))
                 value_label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
@@ -129,11 +153,10 @@ class DetailsManager:
                     bootstyle=DANGER,
                     command=negar_auxilio
                 )
-
                 autorizar_button.grid(row=row_idx, column=0, padx=10, pady=10, sticky='w')
                 negar_button.grid(row=row_idx, column=1, padx=10, pady=10, sticky='w')
 
-        # Adicionar aba "Histórico de solicitações" e, se for pendências/pagamento, a aba "Ações"
+        # Adicionar abas extras (Ações, Histórico)
         self.add_actions_tab(notebook, row_data)
         self.add_history_tab(notebook, row_data)
 
@@ -141,14 +164,10 @@ class DetailsManager:
         self.app.back_button.pack(side='bottom', pady=20)
 
     def add_actions_tab(self, notebook, row_data):
-        """
-        Cria a aba "Ações" para casos de Pendências ou Pronto para pagamento.
-        """
         if self.app.current_view in ["Pendências", "Pronto para pagamento"]:
             actions_tab = tb.Frame(notebook)
             notebook.add(actions_tab, text="Ações")
 
-            # Para Pendências
             if self.app.current_view == "Pendências":
                 def request_documents():
                     new_status = 'Aguardando documentação'
@@ -216,7 +235,6 @@ class DetailsManager:
                 )
                 cancel_button.pack(pady=10)
 
-            # Para Pronto para pagamento
             elif self.app.current_view == "Pronto para pagamento":
                 def payment_made():
                     new_status = 'Pago'
@@ -264,9 +282,6 @@ class DetailsManager:
                 cancel_button.pack(pady=10)
 
     def add_history_tab(self, notebook, row_data):
-        """
-        Cria a aba "Histórico de solicitações" com base no CPF.
-        """
         history_tab = tb.Frame(notebook)
         notebook.add(history_tab, text="Histórico de solicitações")
 
@@ -303,9 +318,6 @@ class DetailsManager:
             self.show_details_in_new_window(selected_row)
 
     def show_details_in_new_window(self, row_data):
-        """
-        Abre uma nova janela (Toplevel) para exibir detalhes de uma solicitação anterior.
-        """
         detail_window = tb.Toplevel(self.app.root)
         detail_window.title("Detalhes da Solicitação")
         detail_window.geometry("800x600")
@@ -323,6 +335,7 @@ class DetailsManager:
         notebook = tb.Notebook(detail_frame, bootstyle=PRIMARY)
         notebook.pack(fill=BOTH, expand=True)
 
+        # Mesma lógica do show_details_in_place, mas sem botões de autorizar/recusar
         sections = {
             "Informações Pessoais": [
                 'Nome completo (sem abreviações):',
@@ -363,15 +376,21 @@ class DetailsManager:
             row_idx = 0
             for col in fields:
                 if col in row_data:
-                    label = tb.Label(tab_frame, text=f"{col}:", font=("Helvetica", 12, "bold"))
+                    display_label = FORM_FIELD_MAPPING.get(col, col)
+                    label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
                     label.grid(row=row_idx, column=0, sticky='nw', padx=10, pady=5)
 
-                    value = tb.Label(tab_frame, text=str(row_data[col]), font=("Helvetica", 12))
+                    value_text = str(row_data[col])
+                    value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
                     value.grid(row=row_idx, column=1, sticky='nw', padx=10, pady=5)
                     row_idx += 1
 
         close_button = tb.Button(detail_frame, text="Fechar", bootstyle=PRIMARY, command=detail_window.destroy)
         close_button.pack(pady=10)
+
+    # Métodos de envio de email (ask_send_email e send_custom_email) continuam iguais
+    # ...
+
 
     # -------------------------------------------------
     # Métodos de Envio de Email usados nestas rotinas

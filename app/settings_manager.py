@@ -2,8 +2,7 @@
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
-from tkinter import Text, messagebox, colorchooser
-#from .column_selector import ColumnSelector  # (EXTRA) Se quisermos separar a lógica
+from tkinter import Text, messagebox
 
 class SettingsManager:
     def __init__(self, app):
@@ -11,44 +10,44 @@ class SettingsManager:
 
     def open_settings(self):
         """
-        Abre janela de configurações com:
-         - Seleção de tema
-         - Botão para editar cores de status
-         - Botões para selecionar colunas de cada visualização
-         - Botões para editar templates de e-mail
-         - Infobox explicando formatação
+        Abre janela de configurações com layout de 2 colunas,
+        remove a edição de cores de status,
+        mantém seleção de tema, seleção de colunas e edição de e-mails.
         """
         settings_window = tb.Toplevel(self.app.root)
         settings_window.title("Configurações")
-        settings_window.geometry("700x650")
+        settings_window.geometry("700x400")
 
-        instructions = (
-            "Nesta seção, você pode editar os modelos de e-mail utilizados.\n"
-            "Use chaves para inserir dados do formulário. Ex.: {Nome}, {Curso}, etc.\n\n"
-            "Também é possível alterar o tema da interface e configurar as cores dos status.\n"
-            "Ao clicar em cada botão de colunas, você poderá escolher quais colunas aparecem em cada visualização."
-        )
+        # Frame principal (grid com 2 colunas)
+        main_frame = tb.Frame(settings_window)
+        main_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
+
+        # =============== COLUNA 1 ===============
+        col1 = tb.Frame(main_frame)
+        col1.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+        col1.columnconfigure(0, weight=1)
+
+        # Título
         instructions_label = tb.Label(
-            settings_window,
-            text=instructions,
-            font=("Helvetica", 10),
-            justify='left'
+            col1,
+            text="Configurações de Interface e Colunas",
+            font=("Helvetica", 12, "bold")
         )
-        instructions_label.pack(pady=5, padx=10)
+        instructions_label.grid(row=0, column=0, sticky='w', pady=5)
 
-        # -------------------------------
-        # Seção para MUDAR O TEMA
-        # -------------------------------
+        # SEÇÃO: TEMA
         theme_label = tb.Label(
-            settings_window,
-            text="Selecione um tema:",
-            font=("Helvetica", 11, "bold")
+            col1,
+            text="Selecione um tema (ttkbootstrap):",
+            font=("Helvetica", 10, "bold")
         )
-        theme_label.pack(pady=5, padx=10, anchor='w')
+        theme_label.grid(row=1, column=0, sticky='w', pady=5)
 
+        # 5 temas fixos
         themes_list = ["flatly", "darkly", "cyborg", "superhero", "cosmo"]
-        theme_combo = tb.Combobox(settings_window, values=themes_list, state='readonly')
-        theme_combo.pack(pady=5, padx=10, fill=X)
+        theme_combo = tb.Combobox(col1, values=themes_list, state='readonly')
+        theme_combo.grid(row=2, column=0, sticky='w', pady=5)
 
         def change_theme(event):
             selected_theme = theme_combo.get()
@@ -56,76 +55,130 @@ class SettingsManager:
 
         theme_combo.bind('<<ComboboxSelected>>', change_theme)
 
-        # -------------------------------
-        # Botão para EDITAR CORES de cada STATUS
-        # -------------------------------
-        color_edit_button = tb.Button(
-            settings_window,
-            text="Editar cores de Status",
-            bootstyle=WARNING,
-            command=self.edit_status_colors
-        )
-        color_edit_button.pack(pady=10, padx=10, fill=X)
-
-        # -------------------------------
-        # Botões para SELECIONAR COLUNAS
-        # -------------------------------
+        # SEÇÃO: BOTÕES PARA SELECIONAR COLUNAS
         columns_label = tb.Label(
-            settings_window,
-            text="Configurar colunas a exibir em cada visualização:",
-            font=("Helvetica", 11, "bold")
+            col1,
+            text="Colunas por Visualização:",
+            font=("Helvetica", 10, "bold")
         )
-        columns_label.pack(pady=5, padx=10, anchor='w')
+        columns_label.grid(row=3, column=0, sticky='w', pady=(15, 5))
 
-        # Três botões, um para cada visualização
         views = [
             ("Aguardando aprovação", "Aguardando aprovação"),
             ("Pendências", "Pendências"),
             ("Pronto para pagamento", "Pronto para pagamento")
         ]
 
+        row_index = 4
         for label_text, view_name in views:
             btn = tb.Button(
-                settings_window,
+                col1,
                 text=f"Editar colunas: {label_text}",
                 bootstyle=INFO,
                 command=lambda v=view_name: self.open_column_selector(v)
             )
-            btn.pack(pady=5, padx=20, fill=X)
+            btn.grid(row=row_index, column=0, sticky='w', pady=5)
+            row_index += 1
 
-        # -------------------------------
-        # SEÇÃO de EDICÃO de E-MAIL
-        # -------------------------------
+        # Ajusta col1 para crescer verticalmente
+        col1.rowconfigure(row_index, weight=1)
+
+        # =============== COLUNA 2 ===============
+        col2 = tb.Frame(main_frame)
+        col2.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+
+        col2.columnconfigure(0, weight=1)
+
+        # SEÇÃO: EDIÇÃO DE EMAILS
         email_section_label = tb.Label(
-            settings_window,
+            col2,
             text="Editar Modelos de E-mail:",
-            font=("Helvetica", 11, "bold")
+            font=("Helvetica", 12, "bold")
         )
-        email_section_label.pack(pady=(20, 5), padx=10, anchor='w')
+        email_section_label.grid(row=0, column=0, sticky='w', pady=5)
 
-        # Infobox discreto explicando formatação
         infobox_text = (
-            "Utilize chaves {} para inserir dados do formulário.\n"
+            "Use chaves {} para inserir dados do formulário.\n"
             "Ex.: {Nome}, {CPF:}, {Telefone de contato:}, etc.\n"
             "Esses campos serão substituídos dinamicamente."
         )
         infobox_label = tb.Label(
-            settings_window,
+            col2,
             text=infobox_text,
             font=("Helvetica", 9),
             foreground="gray"
         )
-        infobox_label.pack(pady=5, padx=10, anchor='w')
+        infobox_label.grid(row=1, column=0, sticky='w', pady=5)
 
-        # Botões para cada motivo
+        row_index2 = 2
         for motivo in self.app.email_templates.keys():
             button = tb.Button(
-                settings_window,
+                col2,
                 text=f"Editar E-mail para {motivo}",
                 bootstyle=SECONDARY,
                 command=lambda m=motivo: self.edit_email_template(m)
             )
-            button.pack(pady=5, padx=10, fill=X)
+            button.grid(row=row_index2, column=0, sticky='w', pady=5)
+            row_index2 += 1
+
+        # Ajusta col2 para crescer
+        col2.rowconfigure(row_index2, weight=1)
+
+        # =============== AJUSTE DE GRID ===============
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+
+    def open_column_selector(self, view_name):
+        """
+        Abre uma janela que permite selecionar quais colunas serão exibidas
+        para a 'view_name' especificada.
+        """
+        sel_window = tb.Toplevel(self.app.root)
+        sel_window.title(f"Configurar Colunas - {view_name}")
+        sel_window.geometry("500x400")
+
+        label = tb.Label(sel_window, text=f"Selecione as colunas para '{view_name}':", font=("Helvetica", 11, "bold"))
+        label.pack(pady=10)
+
+        # Colunas possíveis (você pode ajustar conforme seu uso real)
+        all_possible_columns = [
+            'Endereço de e-mail', 'Nome completo (sem abreviações):', 'Curso:', 'Orientador',
+            'Qual a agência de fomento?', 'Título do projeto do qual participa:', 'Motivo da solicitação',
+            'Local de realização do evento', 'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
+            'Telefone de contato:', 'Carimbo de data/hora_str', 'Status', 'Ultima Atualizacao', 'Valor',
+            'E-mail DAC:', 'Endereço completo (logradouro, número, bairro, cidade e estado)', 'CPF:',
+            'RG/RNE:', 'Dados bancários (banco, agência e conta) '
+        ]
+
+        current_cols = self.app.custom_views.get(view_name, [])
+
+        var_dict = {}
+        for col in all_possible_columns:
+            var = tb.BooleanVar(value=(col in current_cols))
+            var_dict[col] = var
+
+            def toggle_col(c=col):
+                if var_dict[c].get():
+                    if c not in current_cols:
+                        current_cols.append(c)
+                else:
+                    if c in current_cols:
+                        current_cols.remove(c)
+
+            cb = tb.Checkbutton(
+                sel_window,
+                text=col,
+                variable=var,
+                command=toggle_col
+            )
+            cb.pack(anchor='w')
+
+        def close_and_save():
+            self.app.custom_views[view_name] = current_cols
+            sel_window.destroy()
+
+        close_btn = tb.Button(sel_window, text="Salvar e Fechar", bootstyle=SUCCESS, command=close_and_save)
+        close_btn.pack(pady=10)
 
     def edit_email_template(self, motivo):
         """
@@ -154,103 +207,3 @@ class SettingsManager:
 
         save_button = tb.Button(template_window, text="Salvar", bootstyle=SUCCESS, command=save_template)
         save_button.pack(pady=10)
-
-    # -----------------------------------------
-    # 1) MÉTODO PARA EDITAR CORES DE STATUS
-    # -----------------------------------------
-    def edit_status_colors(self):
-        """
-        Abre uma janela permitindo escolher cores para cada status do dicionário self.app.status_colors.
-        """
-        color_window = tb.Toplevel(self.app.root)
-        color_window.title("Editar Cores dos Status")
-        color_window.geometry("400x300")
-
-        label = tb.Label(color_window, text="Selecione a cor para cada Status", font=("Helvetica", 11, "bold"))
-        label.pack(pady=10)
-
-        # Para cada status no dict, criar um botão que abre colorchooser
-        for status, current_color in self.app.status_colors.items():
-            frame = tb.Frame(color_window)
-            frame.pack(fill=X, padx=10, pady=5)
-
-            status_label = tb.Label(frame, text=status, width=25)
-            status_label.pack(side=LEFT)
-
-            def choose_color(s=status):
-                # Abre color chooser
-                c = colorchooser.askcolor(color=self.app.status_colors[s], title=f"Cor para {s}")
-                if c and c[1] is not None:  # c[1] é a string em formato #RRGGBB
-                    self.app.status_colors[s] = c[1]  # atualiza dicionário
-
-            color_btn = tb.Button(frame, text=current_color, bootstyle=INFO, command=choose_color)
-            color_btn.pack(side=LEFT, padx=5)
-
-        # Botão para salvar (ou apenas fechar)
-        def save_and_close():
-            # Se quiser persistir as cores em algum lugar, poderia salvar em JSON também
-            color_window.destroy()
-
-        close_btn = tb.Button(color_window, text="Fechar", bootstyle=PRIMARY, command=save_and_close)
-        close_btn.pack(pady=10)
-
-    # -----------------------------------------
-    # 2) MÉTODO PARA SELECIONAR COLUNAS
-    # -----------------------------------------
-    def open_column_selector(self, view_name):
-        """
-        Abre uma janela que permite selecionar quais colunas serão exibidas para a 'view_name' especificada.
-        Exemplo: 'Aguardando aprovação', 'Pendências', 'Pronto para pagamento'.
-        """
-        sel_window = tb.Toplevel(self.app.root)
-        sel_window.title(f"Configurar Colunas - {view_name}")
-        sel_window.geometry("500x400")
-
-        label = tb.Label(sel_window, text=f"Selecione as colunas para '{view_name}':", font=("Helvetica", 11, "bold"))
-        label.pack(pady=10)
-
-        # Exemplo de colunas disponíveis (poderia vir de self.app ou do constants.py)
-        all_possible_columns = [
-            'Endereço de e-mail', 'Nome completo (sem abreviações):', 'Curso:', 'Orientador',
-            'Qual a agência de fomento?', 'Título do projeto do qual participa:', 'Motivo da solicitação',
-            'Local de realização do evento', 'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
-            'Telefone de contato:', 'Carimbo de data/hora_str', 'Status', 'Ultima Atualizacao', 'Valor',
-            'E-mail DAC:', 'Endereço completo (logradouro, número, bairro, cidade e estado)', 'CPF:',
-            'RG/RNE:', 'Dados bancários (banco, agência e conta) '
-        ]
-
-        # Descobrimos as colunas atualmente associadas a essa view no app
-        # Se você guarda em algo como self.app.custom_views[view_name] -> list:
-        current_cols = self.app.custom_views.get(view_name, [])
-
-        # Criar checkbuttons
-        var_dict = {}
-        for col in all_possible_columns:
-            var = tb.BooleanVar(value=(col in current_cols))
-            var_dict[col] = var
-
-            def toggle_col(c=col):
-                if var_dict[c].get():
-                    # Marcou
-                    if c not in current_cols:
-                        current_cols.append(c)
-                else:
-                    # Desmarcou
-                    if c in current_cols:
-                        current_cols.remove(c)
-
-            cb = tb.Checkbutton(
-                sel_window,
-                text=col,
-                variable=var,
-                command=toggle_col
-            )
-            cb.pack(anchor='w')
-
-        def close_and_save():
-            # Atualiza de fato no app
-            self.app.custom_views[view_name] = current_cols
-            sel_window.destroy()
-
-        close_btn = tb.Button(sel_window, text="Salvar e Fechar", bootstyle=SUCCESS, command=close_and_save)
-        close_btn.pack(pady=10)
