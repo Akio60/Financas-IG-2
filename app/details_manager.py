@@ -31,6 +31,7 @@ FORM_FIELD_MAPPING = {
 class DetailsManager:
     def __init__(self, app):
         self.app = app
+        self.FORM_FIELD_MAPPING = FORM_FIELD_MAPPING
 
     def show_details_in_place(self, row_data):
         """

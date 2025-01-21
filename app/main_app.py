@@ -27,7 +27,8 @@ class App:
         self.root = root
         self.sheets_handler = sheets_handler
         self.email_sender = email_sender
-
+        self.selected_theme = "flatly"
+        
         # Carrega DF inicial
         self.data = self.sheets_handler.load_data()
 
@@ -96,6 +97,12 @@ class App:
             'Dados bancários (banco, agência e conta) '
         ]
     }
+
+    def save_selected_theme(self):
+        # Se quiser salvar em JSON, ou em config
+        # Exemplo rápido: salvando em theme.cfg
+        with open("theme.cfg", "w", encoding="utf-8") as f:
+            f.write(self.selected_theme)
 
     def load_email_templates(self):
         try:
