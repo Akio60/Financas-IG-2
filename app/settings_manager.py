@@ -2,10 +2,10 @@
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
-from tkinter import Text, messagebox
-import tkinter as tk  # para usar tk.Listbox e afins
+import tkinter as tk
+from tkinter import messagebox
 
-BTN_WIDTH = 35  # Largura unificada dos botões
+BTN_WIDTH = 35  # Largura unificada para botões
 
 class SettingsManager:
     def __init__(self, app):
@@ -14,13 +14,8 @@ class SettingsManager:
         self.mask_window = None
 
     def open_settings(self):
-        """
-        Abre (ou foca) a janela de configurações.
-        - Removeu função de alterar tema
-        - Botão 'Editar Títulos' na coluna esquerda
-        - Texto explicativo para colunas
-        - Botões com largura unificada
-        """
+        """Abre (ou foca) a janela de configurações."""
+        # Evita múltiplas janelas duplicadas
         if self.settings_window and self.settings_window.winfo_exists():
             self.settings_window.lift()
             return
@@ -32,15 +27,15 @@ class SettingsManager:
         main_frame = tb.Frame(self.settings_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
+        # Duas colunas
         main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
 
-        # -------------- COLUNA ESQUERDA --------------
+        # Coluna Esquerda
         col1 = tb.Frame(main_frame)
         col1.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         col1.columnconfigure(0, weight=1)
 
-        # Título
         instructions_label = tb.Label(
             col1,
             text="Configurações",
@@ -48,7 +43,7 @@ class SettingsManager:
         )
         instructions_label.grid(row=0, column=0, sticky='w', pady=5)
 
-        # BOTÃO EDIÇÃO DE TÍTULOS (MÁSCARAS)
+        # Botão "Títulos de Informações"
         mask_btn = tb.Button(
             col1,
             text="Títulos de Informações",
@@ -58,27 +53,38 @@ class SettingsManager:
         )
         mask_btn.grid(row=1, column=0, sticky='w', pady=10)
 
-        # SEÇÃO COLUNAS
+        # Se user_role == "A5", exibir "Cadastrar/Remover Usuários"
+        if self.app.user_role == "A5":
+            user_btn = tb.Button(
+                col1,
+                text="Cadastrar/Remover Usuários",
+                bootstyle=INFO,
+                width=BTN_WIDTH,
+                command=self.user_management
+            )
+            user_btn.grid(row=2, column=0, sticky='w', pady=10)
+
+        # Texto sobre colunas
         columns_label = tb.Label(col1, text="Definição de Colunas", font=("Helvetica", 10, "bold"))
-        columns_label.grid(row=2, column=0, sticky='w', pady=(15,5))
+        columns_label.grid(row=3, column=0, sticky='w', pady=(15,5))
 
         col_txt = (
             "Selecione quais colunas serão exibidas em cada visualização\n"
             "e defina a ordem delas."
         )
         col_info_label = tb.Label(col1, text=col_txt, font=("Helvetica", 9), foreground="gray", wraplength=300)
-        col_info_label.grid(row=3, column=0, sticky='w', pady=5)
+        col_info_label.grid(row=4, column=0, sticky='w', pady=5)
 
         views = [
             ("Aguardando aprovação", "Aguardando aprovação"),
             ("Pendências", "Pendências"),
             ("Pronto para pagamento", "Pronto para pagamento")
         ]
-        row_index = 4
+        row_index = 5
         for label_text, view_name in views:
             btn = tb.Button(
                 col1,
-                text=label_text,
+                text=label_text,  # Removido "Editar colunas: "
                 bootstyle=INFO,
                 width=BTN_WIDTH,
                 command=lambda v=view_name: self.open_column_selector(v)
@@ -88,16 +94,12 @@ class SettingsManager:
 
         col1.rowconfigure(row_index, weight=1)
 
-        # -------------- COLUNA DIREITA --------------
+        # Coluna Direita (E-mails)
         col2 = tb.Frame(main_frame)
         col2.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
         col2.columnconfigure(0, weight=1)
 
-        email_section_label = tb.Label(
-            col2,
-            text="E-mails:",
-            font=("Helvetica", 12, "bold")
-        )
+        email_section_label = tb.Label(col2, text="E-mails:", font=("Helvetica", 12, "bold"))
         email_section_label.grid(row=0, column=0, sticky='w', pady=5)
 
         infobox_text = (
@@ -111,7 +113,7 @@ class SettingsManager:
         for motivo in self.app.email_templates.keys():
             button = tb.Button(
                 col2,
-                text=motivo,
+                text=motivo,  # Removido "Editar E-mail para "
                 bootstyle=SECONDARY,
                 width=BTN_WIDTH,
                 command=lambda m=motivo: self.edit_email_template(m)
@@ -121,11 +123,13 @@ class SettingsManager:
 
         col2.rowconfigure(row_index2, weight=1)
 
+    def user_management(self):
+        """Exemplo de janela para cadastrar/remover usuários (A5 - admin)."""
+        messagebox.showinfo("User Management", "Aqui você cadastraria ou removeria usuários...")
+
     def open_column_selector(self, view_name):
         """
-        Abre janela para escolher e ordenar colunas: 2 Listbox (disponível/selecionada)
-        + botões de mover e ordenar.
-        Usa tkinter.Listbox (não ttkbootstrap).
+        Abre janela para escolher/ordenar colunas usando 2 Listbox.
         """
         sel_window = tb.Toplevel(self.app.root)
         sel_window.title(f"Colunas - {view_name}")
@@ -137,7 +141,6 @@ class SettingsManager:
         container = tb.Frame(sel_window)
         container.pack(fill="both", expand=True)
 
-        # Colunas possíveis
         all_possible = [
             'Endereço de e-mail', 'Nome completo (sem abreviações):', 'Curso:', 'Orientador',
             'Qual a agência de fomento?', 'Título do projeto do qual participa:', 'Motivo da solicitação',
@@ -148,7 +151,7 @@ class SettingsManager:
         ]
         current_cols = self.app.custom_views.get(view_name, [])
 
-        # Frame ESQUERDA (disponíveis)
+        # ESQUERDA
         left_frame = tb.Frame(container)
         left_frame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
 
@@ -158,11 +161,11 @@ class SettingsManager:
         list_avail = tk.Listbox(left_frame, selectmode='extended')
         list_avail.pack(fill="both", expand=True)
 
-        # Frame CENTRAL (botões mover)
+        # CENTRO
         center_frame = tb.Frame(container)
         center_frame.pack(side="left", pady=5)
 
-        # Frame DIREITA (selecionadas)
+        # DIREITA
         right_frame = tb.Frame(container)
         right_frame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
 
@@ -213,7 +216,7 @@ class SettingsManager:
             load_lists()
             # re-selecionar
             for i, idx in enumerate(sel):
-                new_idx = idx-1 if idx>0 else 0
+                new_idx = idx - 1 if idx > 0 else 0
                 list_select.selection_set(new_idx)
 
         def move_down():
@@ -228,7 +231,7 @@ class SettingsManager:
             load_lists()
             # re-selecionar
             for i, idx in enumerate(sel):
-                new_idx = idx+1 if idx< len(current_cols)-1 else idx
+                new_idx = idx + 1 if idx < len(current_cols)-1 else idx
                 list_select.selection_set(new_idx)
 
         btn_add = tb.Button(center_frame, text="->", bootstyle=SUCCESS, command=move_to_selected)
@@ -251,7 +254,6 @@ class SettingsManager:
         close_btn.pack(pady=10)
 
     def open_mask_editor(self):
-        """Abre janela para editar máscaras (títulos) individualmente."""
         if self.mask_window and self.mask_window.winfo_exists():
             self.mask_window.lift()
             return
@@ -285,7 +287,7 @@ class SettingsManager:
         scrollbar.pack(side="right", fill="y")
 
         self.entry_vars = {}
-        # A mascara no details_manager
+        # Pegamos dicionário de máscaras
         if hasattr(self.app.details_manager, 'FORM_FIELD_MAPPING'):
             field_map = self.app.details_manager.FORM_FIELD_MAPPING
         else:
@@ -301,7 +303,7 @@ class SettingsManager:
             tk_entry = tb.Entry(scroll_frame, textvariable=var, width=40)
             tk_entry.grid(row=row_idx, column=1, padx=5, pady=5, sticky='w')
 
-            row_idx+=1
+            row_idx += 1
 
         def save_masks():
             for k, v in self.entry_vars.items():
@@ -313,16 +315,11 @@ class SettingsManager:
         save_btn.pack(pady=5)
 
     def edit_email_template(self, motivo):
-        """Abre janela para editar template de e-mail, sem 'Editar E-mail para ' no título."""
         template_window = tb.Toplevel(self.app.root)
         template_window.title(motivo)
         template_window.geometry("600x400")
 
-        label = tb.Label(
-            template_window,
-            text=f"Modelo de E-mail: {motivo}",
-            font=("Helvetica", 12)
-        )
+        label = tb.Label(template_window, text=f"Modelo de E-mail: {motivo}", font=("Helvetica", 12))
         label.pack(pady=10)
 
         text_widget = tb.ScrolledText(template_window, width=70, height=15)

@@ -33,35 +33,28 @@ FORM_FIELD_MAPPING = {
 class DetailsManager:
     def __init__(self, app):
         self.app = app
-        # Vinculamos o dicionário global
         self.FORM_FIELD_MAPPING = FORM_FIELD_MAPPING
 
     def show_details_in_place(self, row_data):
         """
-        Cria Notebook com:
-          - Informações Pessoais
-          - Informações Acadêmicas
-          - Detalhes da Solicitação
-          - Informações Financeiras
-          - (Histórico)
-          - (Ações)
-        A aba 'Histórico' vem antes da 'Ações'. Alinhamento sticky='w'.
+        Cria Notebook com as seções (Informações Pessoais, Acadêmicas, etc.)
+        + Ações + Histórico.
+        Mas a aba Ações só aparece se a view atual for "Pendências" ou "Pronto para pagamento"
+        e se o cargo permitir ao menos alguma ação.
         """
-        # Esconder tabela
         self.app.table_frame.pack_forget()
 
         self.app.details_frame = tb.Frame(self.app.content_frame)
-        self.app.details_frame.pack(fill=BOTH, expand=True)
+        self.app.details_frame.pack(fill="both", expand=True)
 
         self.app.details_title_label = tb.Label(
-            self.app.details_frame,
-            text="Controle de Orçamento IG - PPG UNICAMP",
+            self.app.details_frame, text="Controle de Orçamento IG - PPG UNICAMP",
             font=("Helvetica", 16, "bold")
         )
         self.app.details_title_label.pack(pady=10)
 
         notebook = tb.Notebook(self.app.details_frame, bootstyle=PRIMARY)
-        notebook.pack(fill=BOTH, expand=True)
+        notebook.pack(fill="both", expand=True)
 
         sections = {
             "Informações Pessoais": [
@@ -93,7 +86,7 @@ class DetailsManager:
             ],
         }
 
-        # Criar 4 abas principais
+        # Cria as 4 abas principais
         for section_name, fields in sections.items():
             tab_frame = tb.Frame(notebook)
             notebook.add(tab_frame, text=section_name)
@@ -107,14 +100,19 @@ class DetailsManager:
                     display_label = self.FORM_FIELD_MAPPING.get(col, col)
                     label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
                     label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
-
                     value_text = str(row_data[col])
                     value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
                     value.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
                     row_idx += 1
 
-            # Se for aba Financeira e status=''
+            # Se for Info Financeiras e status=="" e cargo permitir
             if section_name == "Informações Financeiras" and row_data['Status'] == '':
+                # Exemplo: A4 e A5 não podem aceitar requerimento
+                # A1 também não
+                # Só A2 e A3 podem?
+                if self.app.user_role not in ["A2", "A3"]:
+                    continue  # nao cria botoes
+
                 value_label = tb.Label(tab_frame, text="Valor (R$):", font=("Helvetica", 12, "bold"))
                 value_label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
                 value_entry = tb.Entry(tab_frame, width=50)
@@ -124,9 +122,15 @@ class DetailsManager:
                 row_idx += 1
 
                 def autorizar_auxilio():
-                    new_value = self.app.value_entry.get().strip()
+                    # Se cargo for A3, não pode autorizar
+                    if self.app.user_role == "A3":
+                        messagebox.showwarning("Permissão Negada", "Cargo A3 não pode autorizar auxílios.")
+                        return
+                    # Se for A2, autoriza
+                    # ...
+                    new_value = value_entry.get().strip()
                     if not new_value:
-                        messagebox.showwarning("Aviso", "Por favor, insira um valor.")
+                        messagebox.showwarning("Aviso", "Insira um valor antes.")
                         return
                     new_status = 'Autorizado'
                     timestamp_str = row_data['Carimbo de data/hora']
@@ -137,31 +141,29 @@ class DetailsManager:
                     self.app.back_to_main_view()
 
                 def negar_auxilio():
-                    confirm = messagebox.askyesno("Confirmação", "Tem certeza que deseja recusar/cancelar o auxílio?")
+                    # A2 ou A3 podem negar? Se não, exiba warning
+                    if self.app.user_role == "A2":
+                        messagebox.showwarning("Permissão Negada", "Cargo A2 não pode negar esse auxílio.")
+                        return
+                    confirm = messagebox.askyesno("Confirmação", "Tem certeza?")
                     if confirm:
                         new_status = 'Cancelado'
-                        timestamp_str = row_data['Carimbo de data/hora']
-                        self.app.sheets_handler.update_status(timestamp_str, new_status)
+                        ts = row_data['Carimbo de data/hora']
+                        self.app.sheets_handler.update_status(ts, new_status)
                         self.ask_send_email(row_data, new_status)
                         self.app.update_table()
                         self.app.back_to_main_view()
 
                 autorizar_button = tb.Button(
-                    tab_frame,
-                    text="Autorizar Auxílio",
-                    bootstyle=SUCCESS,
-                    command=autorizar_auxilio
+                    tab_frame, text="Autorizar Auxílio", bootstyle=SUCCESS, command=autorizar_auxilio
                 )
                 negar_button = tb.Button(
-                    tab_frame,
-                    text="Recusar/Cancelar Auxílio",
-                    bootstyle=DANGER,
-                    command=negar_auxilio
+                    tab_frame, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=negar_auxilio
                 )
                 autorizar_button.grid(row=row_idx, column=0, padx=10, pady=10, sticky='w')
                 negar_button.grid(row=row_idx, column=1, padx=10, pady=10, sticky='w')
 
-        # Adicionar aba histórico antes de ações
+        # Adiciona aba "Histórico" antes de "Ações"
         self.add_history_tab(notebook, row_data)
         self.add_actions_tab(notebook, row_data)
 
@@ -169,7 +171,6 @@ class DetailsManager:
 
     def add_history_tab(self, notebook, row_data):
         history_tab = tb.Frame(notebook)
-        # Aba "Histórico de Solicitações"
         notebook.add(history_tab, text="Histórico de Solicitações")
 
         cpf = str(row_data.get('CPF:', '')).strip()
@@ -179,12 +180,11 @@ class DetailsManager:
 
         history_columns = ['Carimbo de data/hora', 'Ultima Atualizacao', 'Valor', 'Status']
         history_tree = tb.Treeview(history_tab, columns=history_columns, show='headings', height=10)
-        history_tree.pack(fill=BOTH, expand=True)
+        history_tree.pack(fill="both", expand=True)
 
         for col in history_columns:
             history_tree.heading(
-                col,
-                text=col,
+                col, text=col,
                 command=lambda _col=col: self.app.treeview_sort_column(history_tree, _col, False)
             )
             history_tree.column(col, anchor='center', width=120)
@@ -198,98 +198,77 @@ class DetailsManager:
         history_tree.bind("<Double-1>", self.on_history_treeview_click)
 
     def add_actions_tab(self, notebook, row_data):
-        # Só adiciona se for Pendências ou Pronto para pagamento
-        if self.app.current_view in ["Pendências", "Pronto para pagamento"]:
+        """
+        Aba "Ações" se a view atual for "Pendências" ou "Pronto para pagamento".
+        Dependendo do cargo, libera ou não cada ação.
+        """
+        view = self.app.current_view
+        role = self.app.user_role
+
+        # Se cargo A1 ou A5 => sem ações
+        if role in ["A1", "A5"]:
+            return
+
+        if view in ["Pendências", "Pronto para pagamento"]:
             actions_tab = tb.Frame(notebook)
             notebook.add(actions_tab, text="Ações")
 
-            if self.app.current_view == "Pendências":
+            if view == "Pendências":
                 def request_documents():
-                    new_status = 'Aguardando documentação'
-                    timestamp_str = row_data['Carimbo de data/hora']
-                    self.app.sheets_handler.update_status(timestamp_str, new_status)
-
-                    motivo = row_data.get('Motivo da solicitação', 'Outros').strip()
-                    email_template = self.app.email_templates.get(motivo, self.app.email_templates['Outros'])
-                    subject = "Requisição de Documentos"
-                    body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
-                    self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
-                    self.app.update_table()
-                    self.app.back_to_main_view()
+                    # Se cargo for A4 => não pode
+                    if role == "A4":
+                        messagebox.showwarning("Permissão Negada", "Cargo A4 não pode solicitar documentos.")
+                        return
+                    # Se cargo for A2 => idem, adicione a restrição que quiser
+                    if role == "A2":
+                        messagebox.showwarning("Permissão Negada", "Cargo A2 não pode solicitar docs.")
+                        return
+                    # Caso contrário (A3?), ok
+                    # ... Lógica
 
                 def authorize_payment():
-                    new_status = 'Pronto para pagamento'
-                    timestamp_str = row_data['Carimbo de data/hora']
-                    self.app.sheets_handler.update_status(timestamp_str, new_status)
-
-                    email_template = self.app.email_templates.get('Aprovação', 'Sua solicitação foi aprovada.')
-                    subject = "Pagamento Autorizado"
-                    body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
-                    self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
-                    self.app.update_table()
-                    self.app.back_to_main_view()
+                    # Se cargo for A3/A4 => não pode autorizar
+                    if role in ["A3", "A4"]:
+                        messagebox.showwarning("Negado", "Você não pode autorizar pagamento.")
+                        return
+                    # Lógica
 
                 def cancel_auxilio():
-                    confirm = messagebox.askyesno("Confirmação", "Tem certeza que deseja recusar/cancelar o auxílio?")
-                    if confirm:
-                        new_status = 'Cancelado'
-                        timestamp_str = row_data['Carimbo de data/hora']
-                        self.app.sheets_handler.update_status(timestamp_str, new_status)
+                    # Se cargo for A4 => não pode negar
+                    if role == "A4":
+                        messagebox.showwarning("Negado", "Cargo A4 não pode negar.")
+                        return
+                    # Lógica
 
-                        subject = "Auxílio Cancelado"
-                        body = (
-                            f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
-                            f"Seu auxílio foi cancelado.\n\n"
-                            f"Atenciosamente,\nEquipe Financeira"
-                        )
-                        self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
-                        self.app.update_table()
-                        self.app.back_to_main_view()
+                request_btn = tb.Button(actions_tab, text="Requerir Documentos", bootstyle=WARNING, command=request_documents)
+                request_btn.pack(pady=10)
 
-                request_button = tb.Button(actions_tab, text="Requerir Documentos", bootstyle=WARNING, command=request_documents)
-                request_button.pack(pady=10)
+                authorize_btn = tb.Button(actions_tab, text="Autorizar Pagamento", bootstyle=SUCCESS, command=authorize_payment)
+                authorize_btn.pack(pady=10)
 
-                authorize_button = tb.Button(actions_tab, text="Autorizar Pagamento", bootstyle=SUCCESS, command=authorize_payment)
-                authorize_button.pack(pady=10)
+                cancel_btn = tb.Button(actions_tab, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=cancel_auxilio)
+                cancel_btn.pack(pady=10)
 
-                cancel_button = tb.Button(actions_tab, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=cancel_auxilio)
-                cancel_button.pack(pady=10)
-
-            elif self.app.current_view == "Pronto para pagamento":
+            elif view == "Pronto para pagamento":
                 def payment_made():
-                    new_status = 'Pago'
-                    timestamp_str = row_data['Carimbo de data/hora']
-                    self.app.sheets_handler.update_status(timestamp_str, new_status)
-
-                    email_template = self.app.email_templates.get('Pagamento', 'Seu pagamento foi efetuado.')
-                    subject = "Pagamento Efetuado"
-                    body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
-                    self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
-                    self.app.update_table()
-                    self.app.back_to_main_view()
+                    # se A3/A4 => sem permissão?
+                    if role in ["A3", "A4"]:
+                        messagebox.showwarning("Negado", "Você não pode efetuar pagamento.")
+                        return
+                    # Lógica
 
                 def cancel_auxilio():
-                    confirm = messagebox.askyesno("Confirmação", "Tem certeza que deseja recusar/cancelar o auxílio?")
-                    if confirm:
-                        new_status = 'Cancelado'
-                        timestamp_str = row_data['Carimbo de data/hora']
-                        self.app.sheets_handler.update_status(timestamp_str, new_status)
+                    # se A4 => sem permissão
+                    if role == "A4":
+                        messagebox.showwarning("Negado", "Cargo A4 não pode cancelar.")
+                        return
+                    # Lógica
 
-                        subject = "Auxílio Cancelado"
-                        body = (
-                            f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
-                            f"Seu auxílio foi cancelado.\n\n"
-                            f"Atenciosamente,\nEquipe Financeira"
-                        )
-                        self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
-                        self.app.update_table()
-                        self.app.back_to_main_view()
+                payment_btn = tb.Button(actions_tab, text="Pagamento Efetuado", bootstyle=SUCCESS, command=payment_made)
+                payment_btn.pack(pady=10)
 
-                payment_button = tb.Button(actions_tab, text="Pagamento Efetuado", bootstyle=SUCCESS, command=payment_made)
-                payment_button.pack(pady=10)
-
-                cancel_button = tb.Button(actions_tab, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=cancel_auxilio)
-                cancel_button.pack(pady=10)
+                cancel_btn = tb.Button(actions_tab, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=cancel_auxilio)
+                cancel_btn.pack(pady=10)
 
     def on_history_treeview_click(self, event):
         selected_item = event.widget.selection()

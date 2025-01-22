@@ -7,7 +7,7 @@ import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from datetime import datetime
 from PIL import Image, ImageTk
-from tkinter import messagebox
+from tkinter import messagebox, BOTH, LEFT, Y, RIGHT, X, END
 
 # Imports internos
 from constants import (
@@ -22,13 +22,17 @@ from .details_manager import DetailsManager
 from .statistics_manager import StatisticsManager
 from .settings_manager import SettingsManager
 
+# Para reabrir login
+from login import show_login
+
 class App:
-    def __init__(self, root, sheets_handler: GoogleSheetsHandler, email_sender: EmailSender):
+    def __init__(self, root, sheets_handler: GoogleSheetsHandler, email_sender: EmailSender, user_role, user_name):
         self.root = root
         self.sheets_handler = sheets_handler
         self.email_sender = email_sender
-        self.selected_theme = "flatly"
-        
+        self.user_role = user_role  # "A1", "A2", "A3", "A4", "A5"
+        self.user_name = user_name  # Nome de login digitado
+
         # Carrega DF inicial
         self.data = self.sheets_handler.load_data()
 
@@ -40,76 +44,68 @@ class App:
         self.details_frame = None
         self.statistics_frame = None
         self.history_tree_data = None
-        self.value_entry = None  # usado em finances
+        self.value_entry = None
         self.current_view = None
         self.treeview_data = None
         self.email_templates = {}
 
-        # Cores e mapeamentos (poderíamos não usar aqui, já que ttkbootstrap gera temas)
         self.bg_color = BG_COLOR
         self.button_bg_color = BUTTON_BG_COLOR
         self.frame_bg_color = FRAME_BG_COLOR
         self.status_colors = STATUS_COLORS
         self.column_display_names = COLUMN_DISPLAY_NAMES
 
-        # Variável de busca
         self.search_var = tb.StringVar()
 
-        # Carregar templates de e-mail
         self.load_email_templates()
 
-        # Criar "managers" (subcomponentes)
         self.details_manager = DetailsManager(self)
         self.statistics_manager = StatisticsManager(self)
         self.settings_manager = SettingsManager(self)
 
-        # Montar interface
         self.setup_ui()
-        
+
+        # custom_views - colunas personalizadas
         self.custom_views = {
-        "Aguardando aprovação": [
-            'Endereço de e-mail',
-            'Nome completo (sem abreviações):',
-            'Curso:',
-            'Orientador'
-            # ... e outras que queira
-        ],
-        "Pendências": [
-            'Carimbo de data/hora_str',
-            'Status',
-            'Nome completo (sem abreviações):',
-            'Ultima Atualizacao',
-            'Valor',
-            'Curso:',
-            'Orientador',
-            'E-mail DAC:'
-        ],
-        "Pronto para pagamento": [
-            'Carimbo de data/hora_str',
-            'Nome completo (sem abreviações):',
-            'Ultima Atualizacao',
-            'Valor',
-            'Telefone de contato:',
-            'E-mail DAC:',
-            'Endereço completo (logradouro, número, bairro, cidade e estado)',
-            'CPF:',
-            'RG/RNE:',
-            'Dados bancários (banco, agência e conta) '
-        ]
-    }
+            "Aguardando aprovação": [
+                'Endereço de e-mail',
+                'Nome completo (sem abreviações):',
+                'Curso:',
+                'Orientador'
+            ],
+            "Pendências": [
+                'Carimbo de data/hora_str',
+                'Status',
+                'Nome completo (sem abreviações):',
+                'Ultima Atualizacao',
+                'Valor',
+                'Curso:',
+                'Orientador',
+                'E-mail DAC:'
+            ],
+            "Pronto para pagamento": [
+                'Carimbo de data/hora_str',
+                'Nome completo (sem abreviações):',
+                'Ultima Atualizacao',
+                'Valor',
+                'Telefone de contato:',
+                'E-mail DAC:',
+                'Endereço completo (logradouro, número, bairro, cidade e estado)',
+                'CPF:',
+                'RG/RNE:',
+                'Dados bancários (banco, agência e conta) '
+            ]
+        }
 
     def save_selected_theme(self):
-        # Se quiser salvar em JSON, ou em config
-        # Exemplo rápido: salvando em theme.cfg
-        with open("theme.cfg", "w", encoding="utf-8") as f:
-            f.write(self.selected_theme)
+        # Caso estivesse salvando a theme, mas agora removemos a edição de tema
+        pass
 
     def load_email_templates(self):
         try:
             with open('email_templates.json', 'r', encoding='utf-8') as f:
                 self.email_templates = json.load(f)
         except FileNotFoundError:
-            # Padrão
             self.email_templates = {
                 'Trabalho de Campo': 'Prezado(a) {Nome},\n\nPor favor, envie os documentos necessários...',
                 'Participação em eventos': 'Prezado(a) {Nome},\n\nPor favor, envie os documentos necessários...',
@@ -130,7 +126,7 @@ class App:
         self.main_frame = tb.Frame(self.root)
         self.main_frame.pack(fill=BOTH, expand=True)
 
-        # Frame esquerdo (botões)
+        # Frame esquerdo
         self.left_frame = tb.Frame(self.main_frame, width=200)
         self.left_frame.pack(side=LEFT, fill=Y)
 
@@ -214,17 +210,28 @@ class App:
         )
         self.view_all_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
 
+        # Frame inferior
         bottom_frame = tb.Frame(self.root)
         bottom_frame.pack(side=BOTTOM, fill=X)
 
-        credits_label = tb.Label(
+        # Label: "Você está conectado como {self.user_name}"
+        status_label = tb.Label(
             bottom_frame,
-            text="Desenvolvido por: Vitor Akio & Leonardo Macedo",
+            text=f"Você está conectado como {self.user_name}",
             font=("Helvetica", 10)
         )
-        credits_label.pack(side=RIGHT, padx=10, pady=10)
+        status_label.pack(side=LEFT, padx=10, pady=10)
 
-        # Frame direito (conteúdo principal)
+        # Botão de logout
+        logout_button = tb.Button(
+            bottom_frame,
+            text="Logout",
+            bootstyle=DANGER,
+            command=self.logout
+        )
+        logout_button.pack(side=RIGHT, padx=10, pady=10)
+
+        # Conteúdo principal
         self.content_frame = tb.Frame(self.main_frame)
         self.content_frame.pack(side=LEFT, fill=BOTH, expand=True)
 
@@ -262,6 +269,23 @@ class App:
             command=self.back_to_main_view
         )
 
+    def logout(self):
+        """
+        Fecha a janela principal e reabre a tela de login.
+        """
+        self.root.destroy()
+        import sys, os
+        # Reabrir main.py (opcional) ou chamar show_login() diretamente
+        # Modo 1: re-executar o script python
+        # os.execl(sys.executable, sys.executable, *sys.argv)
+
+        # Modo 2: chamar show_login() e se logar, reabrir main
+        from login import show_login
+        from main import main
+        user_name, user_role = show_login()
+        if user_name:
+            main()
+            
     def setup_welcome_screen(self):
         try:
             img_ig = Image.open('images/logo_unicamp.png')

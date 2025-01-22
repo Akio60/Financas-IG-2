@@ -3,6 +3,7 @@
 import os
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
+from login import show_login
 
 from google_sheets_handler import GoogleSheetsHandler
 from email_sender import EmailSender
@@ -10,6 +11,15 @@ from constants import EMAIL_PASSWORD_ENV
 from app.main_app import App
 
 def main():
+    username, user_role = show_login()
+    user_role = show_login()
+
+    if not user_role:
+        # Se user_role for None, significa que o login foi cancelado/fechado
+        print("Login cancelado. Encerrando aplicativo.")
+        return
+    
+    
     credentials_file = "credentials.json"
     sheet_url = "https://docs.google.com/spreadsheets/d/1sNwhkq0nCuTMRhs2HmahV88uIn9KiXY1ex0vlOwC0O8/edit?usp=sharing"
 
@@ -27,7 +37,7 @@ def main():
     root = tb.Window(themename='flatly')
 
     # Instancia a classe principal da aplicação
-    app = App(root, sheets_handler, email_sender)
+    app = App(root, sheets_handler, email_sender, user_role, user_name=username)
 
     root.mainloop()
 
