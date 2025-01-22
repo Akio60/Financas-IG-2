@@ -5,7 +5,7 @@ from ttkbootstrap.constants import *
 from tkinter import Text, messagebox
 from datetime import datetime
 
-# Mapeamento de colunas do forms -> máscaras amigáveis
+# Mapeamento de colunas do forms -> máscaras
 FORM_FIELD_MAPPING = {
     'Nome completo (sem abreviações):': 'Nome do Solicitante',
     'Endereço de e-mail': 'E-mail Pessoal',
@@ -20,10 +20,12 @@ FORM_FIELD_MAPPING = {
     'Qual a agência de fomento?': 'Agência de Fomento',
     'Título do projeto do qual participa:': 'Título do Projeto',
     'Motivo da solicitação': 'Motivo do Pedido',
-    'Nome do evento ou, se atividade de campo, motivos da realização\n* caso não se trate de evento ou viagem de campo, preencher N/A': 'Nome do Evento/Atividade',
+    'Nome do evento ou, se atividade de campo, motivos da realização\n* caso não se trate de evento ou viagem de campo, preencher N/A':
+        'Nome do Evento/Atividade',
     'Local de realização do evento': 'Local do Evento',
     'Período de realização da atividade. Indique as datas (dd/mm/aaaa)': 'Período da Atividade',
-    'Descrever detalhadamente os itens a serem financiados. Por ex: inscrição em evento, diárias ...': 'Itens a Financiar',
+    'Descrever detalhadamente os itens a serem financiados. Por ex: inscrição em evento, diárias ...':
+        'Itens a Financiar',
     'Valor': 'Valor Solicitado (R$)',
     'Dados bancários (banco, agência e conta) ': 'Dados Bancários'
 }
@@ -31,20 +33,21 @@ FORM_FIELD_MAPPING = {
 class DetailsManager:
     def __init__(self, app):
         self.app = app
+        # Vinculamos o dicionário global
         self.FORM_FIELD_MAPPING = FORM_FIELD_MAPPING
 
     def show_details_in_place(self, row_data):
         """
-        Substitui a tabela por um frame Notebook contendo:
+        Cria Notebook com:
           - Informações Pessoais
           - Informações Acadêmicas
           - Detalhes da Solicitação
           - Informações Financeiras
-          - Histórico de solicitações
-          - Ações (caso pendências ou pronto pagamento)
-        E alinha todos os campos no modo sticky='w' (à esquerda).
+          - (Histórico)
+          - (Ações)
+        A aba 'Histórico' vem antes da 'Ações'. Alinhamento sticky='w'.
         """
-        # Esconder a tabela
+        # Esconder tabela
         self.app.table_frame.pack_forget()
 
         self.app.details_frame = tb.Frame(self.app.content_frame)
@@ -60,7 +63,6 @@ class DetailsManager:
         notebook = tb.Notebook(self.app.details_frame, bootstyle=PRIMARY)
         notebook.pack(fill=BOTH, expand=True)
 
-        # Seções
         sections = {
             "Informações Pessoais": [
                 'Nome completo (sem abreviações):',
@@ -91,19 +93,18 @@ class DetailsManager:
             ],
         }
 
-        # Criar as 4 abas
+        # Criar 4 abas principais
         for section_name, fields in sections.items():
             tab_frame = tb.Frame(notebook)
             notebook.add(tab_frame, text=section_name)
 
-            # Configurar colunas
             tab_frame.columnconfigure(0, weight=1, minsize=200)
             tab_frame.columnconfigure(1, weight=3)
 
             row_idx = 0
             for col in fields:
                 if col in row_data:
-                    display_label = FORM_FIELD_MAPPING.get(col, col)
+                    display_label = self.FORM_FIELD_MAPPING.get(col, col)
                     label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
                     label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
 
@@ -112,7 +113,7 @@ class DetailsManager:
                     value.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
                     row_idx += 1
 
-            # Se for Informações Financeiras e status=='', inserir autorizar/negar
+            # Se for aba Financeira e status=''
             if section_name == "Informações Financeiras" and row_data['Status'] == '':
                 value_label = tb.Label(tab_frame, text="Valor (R$):", font=("Helvetica", 12, "bold"))
                 value_label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
@@ -160,19 +161,15 @@ class DetailsManager:
                 autorizar_button.grid(row=row_idx, column=0, padx=10, pady=10, sticky='w')
                 negar_button.grid(row=row_idx, column=1, padx=10, pady=10, sticky='w')
 
-        # Primeiro adicionamos a aba de histórico
+        # Adicionar aba histórico antes de ações
         self.add_history_tab(notebook, row_data)
-        # Depois a aba de ações (será a última)
         self.add_actions_tab(notebook, row_data)
 
         self.app.back_button.pack(side='bottom', pady=20)
 
     def add_history_tab(self, notebook, row_data):
-        """
-        Aba "Histórico de solicitações"
-        """
         history_tab = tb.Frame(notebook)
-        # Adiciona com texto "Histórico de solicitações"
+        # Aba "Histórico de Solicitações"
         notebook.add(history_tab, text="Histórico de Solicitações")
 
         cpf = str(row_data.get('CPF:', '')).strip()
@@ -201,9 +198,7 @@ class DetailsManager:
         history_tree.bind("<Double-1>", self.on_history_treeview_click)
 
     def add_actions_tab(self, notebook, row_data):
-        """
-        Aba "Ações" fica por último, só aparece se for Pendências ou Pronto p/ Pagamento
-        """
+        # Só adiciona se for Pendências ou Pronto para pagamento
         if self.app.current_view in ["Pendências", "Pronto para pagamento"]:
             actions_tab = tb.Frame(notebook)
             notebook.add(actions_tab, text="Ações")
@@ -251,28 +246,13 @@ class DetailsManager:
                         self.app.update_table()
                         self.app.back_to_main_view()
 
-                request_button = tb.Button(
-                    actions_tab,
-                    text="Requerir Documentos",
-                    bootstyle=WARNING,
-                    command=request_documents
-                )
+                request_button = tb.Button(actions_tab, text="Requerir Documentos", bootstyle=WARNING, command=request_documents)
                 request_button.pack(pady=10)
 
-                authorize_button = tb.Button(
-                    actions_tab,
-                    text="Autorizar Pagamento",
-                    bootstyle=SUCCESS,
-                    command=authorize_payment
-                )
+                authorize_button = tb.Button(actions_tab, text="Autorizar Pagamento", bootstyle=SUCCESS, command=authorize_payment)
                 authorize_button.pack(pady=10)
 
-                cancel_button = tb.Button(
-                    actions_tab,
-                    text="Recusar/Cancelar Auxílio",
-                    bootstyle=DANGER,
-                    command=cancel_auxilio
-                )
+                cancel_button = tb.Button(actions_tab, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=cancel_auxilio)
                 cancel_button.pack(pady=10)
 
             elif self.app.current_view == "Pronto para pagamento":
@@ -305,20 +285,10 @@ class DetailsManager:
                         self.app.update_table()
                         self.app.back_to_main_view()
 
-                payment_button = tb.Button(
-                    actions_tab,
-                    text="Pagamento Efetuado",
-                    bootstyle=SUCCESS,
-                    command=payment_made
-                )
+                payment_button = tb.Button(actions_tab, text="Pagamento Efetuado", bootstyle=SUCCESS, command=payment_made)
                 payment_button.pack(pady=10)
 
-                cancel_button = tb.Button(
-                    actions_tab,
-                    text="Recusar/Cancelar Auxílio",
-                    bootstyle=DANGER,
-                    command=cancel_auxilio
-                )
+                cancel_button = tb.Button(actions_tab, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=cancel_auxilio)
                 cancel_button.pack(pady=10)
 
     def on_history_treeview_click(self, event):
@@ -329,9 +299,6 @@ class DetailsManager:
             self.show_details_in_new_window(selected_row)
 
     def show_details_in_new_window(self, row_data):
-        """
-        Exibe detalhes do histórico em nova janela
-        """
         detail_window = tb.Toplevel(self.app.root)
         detail_window.title("Detalhes da Solicitação")
         detail_window.geometry("800x600")
@@ -339,16 +306,13 @@ class DetailsManager:
         detail_frame = tb.Frame(detail_window)
         detail_frame.pack(fill=BOTH, expand=True)
 
-        details_title_label = tb.Label(
-            detail_frame,
-            text="Detalhes da Solicitação",
-            font=("Helvetica", 16, "bold")
-        )
+        details_title_label = tb.Label(detail_frame, text="Detalhes da Solicitação", font=("Helvetica", 16, "bold"))
         details_title_label.pack(pady=10)
 
         notebook = tb.Notebook(detail_frame, bootstyle=PRIMARY)
         notebook.pack(fill=BOTH, expand=True)
 
+        # Repetir as abas (sem botões de autorizar)
         sections = {
             "Informações Pessoais": [
                 'Nome completo (sem abreviações):',
@@ -389,7 +353,7 @@ class DetailsManager:
             row_idx = 0
             for col in fields:
                 if col in row_data:
-                    display_label = FORM_FIELD_MAPPING.get(col, col)
+                    display_label = self.FORM_FIELD_MAPPING.get(col, col)
                     label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
                     label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
 
@@ -401,9 +365,7 @@ class DetailsManager:
         close_button = tb.Button(detail_frame, text="Fechar", bootstyle=PRIMARY, command=detail_window.destroy)
         close_button.pack(pady=10)
 
-    # -------------------------------------------------
-    # Métodos de Envio de Email
-    # -------------------------------------------------
+    # Métodos de e-mail
     def ask_send_email(self, row_data, new_status, new_value=None):
         confirm = messagebox.askyesno("Enviar E-mail", "Deseja enviar um e-mail notificando a alteração de status?")
         if confirm:
