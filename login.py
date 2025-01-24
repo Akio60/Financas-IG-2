@@ -52,7 +52,7 @@ class LoginWindow:
         self.canvas.place(x=0, y=0)
 
         self.canvas.create_rectangle(426, 0, 920, 520, fill="#FCFCFC", outline="")
-        self.canvas.create_rectangle(53, 91, 198, 96, fill="#FCFCFC", outline="")
+        self.canvas.create_rectangle(45, 95, 260, 100, fill="#FCFCFC", outline="")
 
         # Botão "Login"
         button_image_1 = PhotoImage(file=relative_to_assets("button_1.png"))
@@ -101,7 +101,7 @@ class LoginWindow:
         self.entry_user.place(x=494, y=128, width=321, height=52)
 
         self.canvas.create_text(
-            483, 98, anchor="nw",
+            483, 88, anchor="nw",
             text="Login:",
             fill="#505485",
             font=("Roboto Bold", 20)
@@ -115,13 +115,13 @@ class LoginWindow:
             font=("Roboto Bold", 20)
         )
         self.canvas.create_text(
-            53, 105, anchor="nw",
+            28, 145, anchor="nw",
             text="IG - Instituto de Geociências da UNICAMP\n",
             fill="#FCFCFC",
-            font=("Roboto Bold", 12)
+            font=("Roboto Bold", 14)
         )
         self.canvas.create_text(
-            65, 146, anchor="nw",
+            65, 200, anchor="nw",
             text="Recebimento unificado das solicitações.\n\n"
                  "Sistema de visualização e gerenciamento\n"
                  "em cada etapa do processo.\n\n"
@@ -131,13 +131,13 @@ class LoginWindow:
             font=("CrimsonText Bold", 11)
         )
         self.canvas.create_text(
-            28, 428, anchor="nw",
-            text="Desenvolvido por Vitor Isawa e Leonardo Macedo, para mais informações sobre o\nprojeto , acesse os links abaixo ou entre em contato no seguinte email: ",
+            28, 430, anchor="nw",
+            text="Desenvolvido por Vitor Isawa e Leonardo Macedo, para mais informações \nsobre o projeto , acesse os links abaixo ou entre em contato no seguinte e-mail: ",
             fill="#FFFFFF",
             font=("Piazzolla Regular", 11 * -1)
         )
         self.canvas.create_text(
-            230, 462, anchor="nw",
+            230, 460, anchor="nw",
             text="vitorakioisawa@gmail.com\nl239207@dac.unicamp.br",
             fill="#FFFFFF",
             font=("Petrona Regular", 10)
