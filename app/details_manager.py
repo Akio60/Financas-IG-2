@@ -4,6 +4,11 @@ import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from tkinter import Text, messagebox
 from datetime import datetime
+import json
+import os
+
+NOTIFICATION_CARGOS_FILE = "notification_cargos.json"
+USERS_DB_FILE = "users_db.json"
 
 # Mapeamento de colunas do forms -> máscaras
 FORM_FIELD_MAPPING = {
@@ -29,6 +34,18 @@ FORM_FIELD_MAPPING = {
     'Valor': 'Valor Solicitado (R$)',
     'Dados bancários (banco, agência e conta) ': 'Dados Bancários'
 }
+
+def load_notification_cargos():
+    if os.path.exists(NOTIFICATION_CARGOS_FILE):
+        with open(NOTIFICATION_CARGOS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def load_users_db():
+    if os.path.exists(USERS_DB_FILE):
+        with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
 
 class DetailsManager:
     def __init__(self, app):
@@ -168,6 +185,40 @@ class DetailsManager:
         self.add_actions_tab(notebook, row_data)
 
         self.app.back_button.pack(side='bottom', pady=20)
+
+    def notify_next_responsible(self, event_key, row_data):
+        """
+        Lê notification_cargos.json para descobrir qual cargo
+        deve ser avisado ao mudar para 'event_key' (ex.: 'Autorizado', 'Cancelado' etc.)
+        Em seguida, lê users_db.json para descobrir quem tem esse cargo e manda e-mail.
+        """
+        notif_cfg = load_notification_cargos()
+        cargo = notif_cfg.get(event_key, None)
+        if not cargo:
+            return  # não configurado
+
+        users_db = load_users_db()
+        # Enviar e-mail para todos que possuam cargo == cargo
+        recipients = []
+        for u, info in users_db.items():
+            if info.get('role') == cargo:
+                recipients.append(info.get('email'))
+
+        if not recipients:
+            return
+
+        # Montar e-mail
+        subject = f"Notificação de Requerimento [{event_key}]"
+        body = (
+            f"Prezado(s),\n\n"
+            f"O requerimento de {row_data.get('Nome completo (sem abreviações):', 'Desconhecido')} mudou para status '{event_key}'.\n"
+            f"Verifique o sistema.\n\n"
+            f"Atenciosamente,\nSistema Financeiro"
+        )
+
+        for r in recipients:
+            if r:
+                self.app.email_sender.send_email(r, subject, body)
 
     def add_history_tab(self, notebook, row_data):
         history_tab = tb.Frame(notebook)

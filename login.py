@@ -3,15 +3,19 @@
 import tkinter as tk
 from tkinter import Canvas, Entry, Button, PhotoImage, messagebox
 from pathlib import Path
+import os
+import json
 
 # Dicionário com usuários
-USERS_DB = {
-    "visual1":  {"password": "123", "role": "A1"},  # A1 - Visualizador
-    "receb1":   {"password": "123", "role": "A2"},  # A2 - Recebimento/verificação
-    "gerent1":  {"password": "123", "role": "A3"},  # A3 - Gerenciamento
-    "financ1":  {"password": "123", "role": "A4"},  # A4 - Gestão Financeira
-    "admin":    {"password": "admin", "role": "A5"} # A5 - Admin
-}
+
+USERS_DB_FILE = "users_db.json"
+def load_users_db():
+    if os.path.exists(USERS_DB_FILE):
+        with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+USERS_DB = load_users_db()
 
 # Ajuste para que o caminho seja relativo à pasta do arquivo login.py
 # Ex.: se você tiver "assets/frame0" dentro do mesmo diretório do seu projeto,
@@ -26,7 +30,7 @@ def relative_to_assets(path: str) -> Path:
 class LoginWindow:
     def __init__(self):
         self.window = tk.Tk()
-        self.window.geometry("862x519")
+        self.window.geometry("920x520")
         self.window.configure(bg="#3A7FF6")
         self.window.title("Tela de Login")
 
@@ -39,15 +43,15 @@ class LoginWindow:
         self.canvas = Canvas(
             self.window,
             bg="#3A7FF6",
-            height=519,
-            width=862,
+            height=520,
+            width=920,
             bd=0,
             highlightthickness=0,
             relief="ridge"
         )
         self.canvas.place(x=0, y=0)
 
-        self.canvas.create_rectangle(426, 2, 863, 523, fill="#FCFCFC", outline="")
+        self.canvas.create_rectangle(426, 0, 920, 520, fill="#FCFCFC", outline="")
         self.canvas.create_rectangle(53, 91, 198, 96, fill="#FCFCFC", outline="")
 
         # Botão "Login"
@@ -97,7 +101,7 @@ class LoginWindow:
         self.entry_user.place(x=494, y=128, width=321, height=52)
 
         self.canvas.create_text(
-            486, 98, anchor="nw",
+            483, 98, anchor="nw",
             text="Login:",
             fill="#505485",
             font=("Roboto Bold", 20)
@@ -106,12 +110,12 @@ class LoginWindow:
         # Título e textos adicionais
         self.canvas.create_text(
             28, 28, anchor="nw",
-            text="Sistema de Gestão de \nRequerimentos de Orçamentos",
+            text="Sistema de Gestão de \nRequerimentos",
             fill="#FCFCFC",
-            font=("Roboto Bold", 24)
+            font=("Roboto Bold", 20)
         )
         self.canvas.create_text(
-            53, 100, anchor="nw",
+            53, 105, anchor="nw",
             text="IG - Instituto de Geociências da UNICAMP\n",
             fill="#FCFCFC",
             font=("Roboto Bold", 12)
@@ -128,9 +132,9 @@ class LoginWindow:
         )
         self.canvas.create_text(
             28, 428, anchor="nw",
-            text="Desenvolvido por Vitor Isawa e Leonardo Macedo ...",
+            text="Desenvolvido por Vitor Isawa e Leonardo Macedo, para mais informações sobre o\nprojeto , acesse os links abaixo ou entre em contato no seguinte email: ",
             fill="#FFFFFF",
-            font=("Piazzolla Regular", 10)
+            font=("Piazzolla Regular", 11 * -1)
         )
         self.canvas.create_text(
             230, 462, anchor="nw",
@@ -140,7 +144,7 @@ class LoginWindow:
         )
         self.canvas.create_text(
             749, 498, anchor="nw",
-            text="ver.: 2.2.01 - distrib.: 1/02/2025",
+            text="ver.: 2.3.03 - distrib.: 1/02/2025",
             fill="#000000",
             font=("Rokkitt Bold", 8)
         )
@@ -189,6 +193,9 @@ class LoginWindow:
     def run(self):
         self.window.mainloop()
         # Retorna tupla (username, role) ou (None, None) se não logou
+        if self.username is None:
+        # Significa que o usuário fechou sem logar
+            return (None, None)
         return (self.username, self.role)
 
 def show_login():

@@ -12,7 +12,6 @@ from app.main_app import App
 
 def main():
     username, user_role = show_login()
-    user_role = show_login()
 
     if not user_role:
         # Se user_role for None, significa que o login foi cancelado/fechado

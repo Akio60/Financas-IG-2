@@ -8,6 +8,7 @@ from ttkbootstrap.constants import *
 from datetime import datetime
 from PIL import Image, ImageTk
 from tkinter import messagebox, BOTH, LEFT, Y, RIGHT, X, END
+import sys
 
 # Imports internos
 from constants import (
@@ -22,16 +23,13 @@ from .details_manager import DetailsManager
 from .statistics_manager import StatisticsManager
 from .settings_manager import SettingsManager
 
-# Para reabrir login
-from login import show_login
-
 class App:
     def __init__(self, root, sheets_handler: GoogleSheetsHandler, email_sender: EmailSender, user_role, user_name):
         self.root = root
         self.sheets_handler = sheets_handler
         self.email_sender = email_sender
-        self.user_role = user_role  # "A1", "A2", "A3", "A4", "A5"
-        self.user_name = user_name  # Nome de login digitado
+        self.user_role = user_role
+        self.user_name = user_name
 
         # Carrega DF inicial
         self.data = self.sheets_handler.load_data()
@@ -65,7 +63,7 @@ class App:
 
         self.setup_ui()
 
-        # custom_views - colunas personalizadas
+        # Colunas customizadas
         self.custom_views = {
             "Aguardando aprovação": [
                 'Endereço de e-mail',
@@ -97,10 +95,6 @@ class App:
             ]
         }
 
-    def save_selected_theme(self):
-        # Caso estivesse salvando a theme, mas agora removemos a edição de tema
-        pass
-
     def load_email_templates(self):
         try:
             with open('email_templates.json', 'r', encoding='utf-8') as f:
@@ -112,7 +106,7 @@ class App:
                 'Visita técnica': 'Prezado(a) {Nome},\n\nPor favor, envie...',
                 'Outros': 'Prezado(a) {Nome},\n\nPor favor, envie...',
                 'Aprovação': 'Prezado(a) {Nome},\n\nSua solicitação foi aprovada...',
-                'Pagamento': 'Prezado(a) {Nome},\n\nSeu pagamento foi efetuado...',
+                'Pagamento': 'Prezado(a) {Nome},\n\nSeu pagamento foi efetuado...'
             }
 
     def save_email_templates(self):
@@ -214,7 +208,6 @@ class App:
         bottom_frame = tb.Frame(self.root)
         bottom_frame.pack(side=BOTTOM, fill=X)
 
-        # Label: "Você está conectado como {self.user_name}"
         status_label = tb.Label(
             bottom_frame,
             text=f"Você está conectado como {self.user_name}",
@@ -222,7 +215,6 @@ class App:
         )
         status_label.pack(side=LEFT, padx=10, pady=10)
 
-        # Botão de logout
         logout_button = tb.Button(
             bottom_frame,
             text="Logout",
@@ -270,22 +262,9 @@ class App:
         )
 
     def logout(self):
-        """
-        Fecha a janela principal e reabre a tela de login.
-        """
-        self.root.destroy()
-        import sys, os
-        # Reabrir main.py (opcional) ou chamar show_login() diretamente
-        # Modo 1: re-executar o script python
-        # os.execl(sys.executable, sys.executable, *sys.argv)
+        """Encerra completamente o programa."""
+        sys.exit(0)
 
-        # Modo 2: chamar show_login() e se logar, reabrir main
-        from login import show_login
-        from main import main
-        user_name, user_role = show_login()
-        if user_name:
-            main()
-            
     def setup_welcome_screen(self):
         try:
             img_ig = Image.open('images/logo_unicamp.png')
@@ -296,6 +275,7 @@ class App:
 
             logo_ig = ImageTk.PhotoImage(img_ig)
             logo_unicamp = ImageTk.PhotoImage(img_unicamp)
+
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao carregar as imagens: {e}")
             return
@@ -326,13 +306,11 @@ class App:
         )
         summary_label.pack(pady=20)
 
-    # -----------------------
-    # Métodos de navegação
-    # -----------------------
-
+    # -------------- Navegação --------------
     def select_view(self, view_name):
         self.current_view = view_name
         self.search_var.set('')
+
         if self.welcome_frame.winfo_ismapped():
             self.welcome_frame.pack_forget()
         if self.statistics_frame and self.statistics_frame.winfo_ismapped():
@@ -407,75 +385,44 @@ class App:
         self.back_button.pack_forget()
         self.table_frame.pack(fill=BOTH, expand=True)
 
-    # -----------------------
-    # Métodos de tabela
-    # -----------------------
+        # Forçar re-layout
+        self.update_table()
+        self.root.update_idletasks()
 
-# ARQUIVO: app/main_app.py
-# DENTRO DA CLASSE App
-# Substitua o método update_table COMPLETO pelo a seguir:
-
+    # -------------- Tabela --------------
     def update_table(self):
-        """
-        Atualiza a tabela (Treeview) de acordo com self.current_view,
-        aplicando filtros e pesquisas. Utiliza colunas customizadas se existirem,
-        caso contrário, faz fallback para as colunas definidas previamente.
-        """
-        # Se existir um details_frame aberto, escondê-lo e destruí-lo
+        # Fecha detalhes
         if self.details_frame:
             if self.details_frame.winfo_ismapped():
                 self.details_frame.pack_forget()
             self.details_frame.destroy()
             self.details_frame = None
 
-        # Se houver alguma estatística aberta, escondê-la
         if self.statistics_frame and self.statistics_frame.winfo_ismapped():
             self.statistics_frame.pack_forget()
 
-        # Exibir o frame da tabela
         self.table_frame.pack(fill="both", expand=True)
 
-        # Limpa a treeview
+        # Limpar tree
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        # ------------------------------------------------
-        # LÓGICA DE COLUNAS: TENTA USAR CUSTOM, SE TIVER
-        # ------------------------------------------------
+        # Lógica de colunas (custom_views ou fallback)
         if hasattr(self, 'custom_views') and self.current_view in self.custom_views:
-            # Se o dicionário custom_views existir e contiver a current_view,
-            # usamos as colunas definidas pelo usuário
             self.columns_to_display = self.custom_views[self.current_view]
         else:
-            # CASO CONTRÁRIO, FALLBACK PARA SEU BLOCO ORIGINAL
             if self.current_view == "Aguardando aprovação":
-                self.columns_to_display = [
-                    'Endereço de e-mail', 'Nome completo (sem abreviações):', 'Curso:', 'Orientador',
-                    'Qual a agência de fomento?', 'Título do projeto do qual participa:', 'Motivo da solicitação',
-                    'Local de realização do evento', 'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
-                    'Telefone de contato:'
-                ]
+                self.columns_to_display = [...]
             elif self.current_view == "Pendências":
-                self.columns_to_display = [
-                    'Carimbo de data/hora_str', 'Status', 'Nome completo (sem abreviações):',
-                    'Ultima Atualizacao', 'Valor', 'Curso:', 'Orientador', 'E-mail DAC:'
-                ]
+                self.columns_to_display = [...]
             elif self.current_view == "Pronto para pagamento":
-                self.columns_to_display = [
-                    'Carimbo de data/hora_str', 'Nome completo (sem abreviações):', 'Ultima Atualizacao',
-                    'Valor', 'Telefone de contato:', 'E-mail DAC:',
-                    'Endereço completo (logradouro, número, bairro, cidade e estado)', 'CPF:',
-                    'RG/RNE:', 'Dados bancários (banco, agência e conta) '
-                ]
+                self.columns_to_display = [...]
             else:
                 self.columns_to_display = [
                     'Carimbo de data/hora_str', 'Nome completo (sem abreviações):',
                     'Ultima Atualizacao', 'Valor', 'Status'
                 ]
 
-        # ------------------------------------------------
-        # CRIA COLUNAS NA TREEVIEW
-        # ------------------------------------------------
         self.tree["columns"] = self.columns_to_display
         for col in self.columns_to_display:
             display_name = self.column_display_names.get(col, col)
@@ -486,12 +433,7 @@ class App:
             )
             self.tree.column(col, anchor="center", width=150)
 
-        # ------------------------------------------------
-        # FILTRAR OS DADOS (DATAFRAME)
-        # ------------------------------------------------
         self.data = self.sheets_handler.load_data()
-
-        # Converte 'Carimbo de data/hora' p/ datetime (se necessário)
         self.data['Carimbo de data/hora'] = pd.to_datetime(
             self.data['Carimbo de data/hora'],
             format='%d/%m/%Y %H:%M:%S',
@@ -499,7 +441,6 @@ class App:
         )
         self.data['Carimbo de data/hora_str'] = self.data['Carimbo de data/hora'].dt.strftime('%d/%m/%Y')
 
-        # Filtro por view
         if self.current_view == "Search":
             data_filtered = self.data.copy()
         elif self.current_view == "Pendências":
@@ -511,12 +452,8 @@ class App:
         else:
             data_filtered = self.data.copy()
 
-        # ------------------------------------------------
-        # FILTRO DE PESQUISA (SEARCH)
-        # ------------------------------------------------
         search_term = self.search_var.get().lower()
         if search_term:
-            # Verifica se as colunas_to_display existem no DF
             cols_for_search = [c for c in self.columns_to_display if c in data_filtered.columns]
             data_filtered = data_filtered[
                 data_filtered[cols_for_search].apply(
@@ -525,52 +462,34 @@ class App:
                 )
             ]
 
-        # ------------------------------------------------
-        # SELECIONAR COLUNAS FINAIS DO DATAFRAME
-        # ------------------------------------------------
-        # Precisamos garantir que 'Carimbo de data/hora' exista p/ evitar KeyError
-        final_columns = list(self.columns_to_display)  # copia
+        final_columns = list(self.columns_to_display)
         if 'Carimbo de data/hora' not in final_columns:
             final_columns.append('Carimbo de data/hora')
 
-        # Tenta filtrar
         try:
             data_filtered = data_filtered[final_columns]
         except KeyError as e:
             messagebox.showerror("Erro", f"Coluna não encontrada: {e}")
             return
 
-        # Armazena dados (opcional)
         self.treeview_data = data_filtered.copy()
 
-        # ------------------------------------------------
-        # INSERIR OS DADOS NA TREEVIEW
-        # ------------------------------------------------
         for idx, row in data_filtered.iterrows():
             values = row[self.columns_to_display].tolist()
             tag = 'evenrow' if idx % 2 == 0 else 'oddrow'
             status_value = row.get('Status', '')
             status_color = self.status_colors.get(status_value, '#000000')
 
-            # Ajusta cor do texto da linha
             self.tree.tag_configure(f'status_tag_{idx}', foreground=status_color)
-
             self.tree.insert(
-                "",
-                "end",
-                iid=str(idx),
-                values=values,
-                tags=(tag, f'status_tag_{idx}')
+                "", "end", iid=str(idx),
+                values=values, tags=(tag, f'status_tag_{idx}')
             )
 
-        # ------------------------------------------------
-        # ESCONDE BOTÃO VOLTAR (SE ESTIVER VISÍVEL)
-        # ------------------------------------------------
         if self.back_button.winfo_ismapped():
             self.back_button.pack_forget()
 
         self.table_title_label.config(text="Controle de Orçamento IG - PPG UNICAMP")
-
 
     def treeview_sort_column(self, tv, col, reverse):
         data_list = [(tv.set(k, col), k) for k in tv.get_children('')]
@@ -589,19 +508,13 @@ class App:
         selected_item = self.tree.selection()
         if selected_item:
             row_index = int(selected_item[0])
-            # Carrega novamente do Sheets (caso esteja atualizado)
             self.current_row_data = self.sheets_handler.load_data().loc[row_index]
-            # Chama o DetailsManager
             self.details_manager.show_details_in_place(self.current_row_data)
 
-    # -----------------------
-    # Métodos de estatísticas
-    # -----------------------
+    # -------------- Estatísticas --------------
     def show_statistics(self):
         self.statistics_manager.show_statistics()
 
-    # -----------------------
-    # Métodos de configurações
-    # -----------------------
+    # -------------- Configurações --------------
     def open_settings(self):
         self.settings_manager.open_settings()

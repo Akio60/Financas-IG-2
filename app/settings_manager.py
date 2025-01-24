@@ -4,8 +4,53 @@ import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 import tkinter as tk
 from tkinter import messagebox
+import json
+import os
 
-BTN_WIDTH = 35  # Largura unificada para botões
+BTN_WIDTH = 35
+
+# Exemplo de arquivo para armazenar "users_db.json"
+# contendo algo como:
+# {
+#   "visual1": {"password": "123", "role": "A1", "email": "visual1@exemplo.com"},
+#   ...
+# }
+
+# Exemplo de arquivo "notification_cargos.json" com algo como:
+# {
+#   "Pendencias": "A2",
+#   "ProntoPagamento": "A4",
+#   "Aprovado": "A3"
+# }
+
+USERS_DB_FILE = "users_db.json"
+NOTIFICATION_CARGOS_FILE = "notification_cargos.json"
+
+def load_users_db():
+    if os.path.exists(USERS_DB_FILE):
+        with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def save_users_db(db):
+    with open(USERS_DB_FILE, 'w', encoding='utf-8') as f:
+        json.dump(db, f, indent=4, ensure_ascii=False)
+
+def load_notification_cargos():
+    if os.path.exists(NOTIFICATION_CARGOS_FILE):
+        with open(NOTIFICATION_CARGOS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {
+        "AguardandoAprovacao": "A2",
+        "Pendencias": "A3",
+        "ProntoPagamento": "A4",
+        "Cancelado": "A1",
+        "Autorizado": "A3"
+    }
+
+def save_notification_cargos(cfg):
+    with open(NOTIFICATION_CARGOS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(cfg, f, indent=4, ensure_ascii=False)
 
 class SettingsManager:
     def __init__(self, app):
@@ -13,9 +58,14 @@ class SettingsManager:
         self.settings_window = None
         self.mask_window = None
 
+        # Carregamos DB de usuários
+        self.users_db = load_users_db()
+
+        # Carregamos config de notificação
+        self.notification_cargos = load_notification_cargos()
+
     def open_settings(self):
         """Abre (ou foca) a janela de configurações."""
-        # Evita múltiplas janelas duplicadas
         if self.settings_window and self.settings_window.winfo_exists():
             self.settings_window.lift()
             return
@@ -27,7 +77,6 @@ class SettingsManager:
         main_frame = tb.Frame(self.settings_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Duas colunas
         main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
 
@@ -64,27 +113,41 @@ class SettingsManager:
             )
             user_btn.grid(row=2, column=0, sticky='w', pady=10)
 
-        # Texto sobre colunas
+            notif_btn = tb.Button(
+                col1,
+                text="Configurar cargo de notificação",
+                bootstyle=INFO,
+                width=BTN_WIDTH,
+                command=self.setup_notification_cargos
+            )
+            notif_btn.grid(row=3, column=0, sticky='w', pady=10)
+
+            row_start_col = 4
+        else:
+            row_start_col = 2
+
         columns_label = tb.Label(col1, text="Definição de Colunas", font=("Helvetica", 10, "bold"))
-        columns_label.grid(row=3, column=0, sticky='w', pady=(15,5))
+        columns_label.grid(row=row_start_col, column=0, sticky='w', pady=(15,5))
+
+        row_start_col += 1
 
         col_txt = (
             "Selecione quais colunas serão exibidas em cada visualização\n"
             "e defina a ordem delas."
         )
         col_info_label = tb.Label(col1, text=col_txt, font=("Helvetica", 9), foreground="gray", wraplength=300)
-        col_info_label.grid(row=4, column=0, sticky='w', pady=5)
+        col_info_label.grid(row=row_start_col, column=0, sticky='w', pady=5)
 
         views = [
             ("Aguardando aprovação", "Aguardando aprovação"),
             ("Pendências", "Pendências"),
             ("Pronto para pagamento", "Pronto para pagamento")
         ]
-        row_index = 5
+        row_index = row_start_col + 1
         for label_text, view_name in views:
             btn = tb.Button(
                 col1,
-                text=label_text,  # Removido "Editar colunas: "
+                text=label_text,
                 bootstyle=INFO,
                 width=BTN_WIDTH,
                 command=lambda v=view_name: self.open_column_selector(v)
@@ -94,7 +157,7 @@ class SettingsManager:
 
         col1.rowconfigure(row_index, weight=1)
 
-        # Coluna Direita (E-mails)
+        # Coluna Direita
         col2 = tb.Frame(main_frame)
         col2.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
         col2.columnconfigure(0, weight=1)
@@ -113,7 +176,7 @@ class SettingsManager:
         for motivo in self.app.email_templates.keys():
             button = tb.Button(
                 col2,
-                text=motivo,  # Removido "Editar E-mail para "
+                text=motivo,
                 bootstyle=SECONDARY,
                 width=BTN_WIDTH,
                 command=lambda m=motivo: self.edit_email_template(m)
@@ -123,9 +186,140 @@ class SettingsManager:
 
         col2.rowconfigure(row_index2, weight=1)
 
+    # --------------------------------------------
+    # Janela de gerenciamento de usuários (Admin)
+    # --------------------------------------------
     def user_management(self):
-        """Exemplo de janela para cadastrar/remover usuários (A5 - admin)."""
-        messagebox.showinfo("User Management", "Aqui você cadastraria ou removeria usuários...")
+        um_window = tb.Toplevel(self.app.root)
+        um_window.title("Gerenciar Usuários")
+        um_window.geometry("500x400")
+
+        # Carregar a base atual
+        db_users = load_users_db()
+
+        tk.Label(um_window, text="Usuários Cadastrados:", font=("Helvetica", 12, "bold")).pack(pady=5)
+
+        listbox = tk.Listbox(um_window)
+        listbox.pack(fill="both", expand=True, padx=10, pady=5)
+
+        # Preenche listbox
+        def refresh_users():
+            listbox.delete(0, 'end')
+            for u in db_users.keys():
+                r = db_users[u]["role"]
+                e = db_users[u]["email"]
+                listbox.insert('end', f"{u} | Cargo: {r} | Email: {e}")
+
+        refresh_users()
+
+        # Frame de botões
+        btn_frame = tk.Frame(um_window)
+        btn_frame.pack(pady=5)
+
+        def add_user():
+            # janela p/ inserir user, password, role, email
+            addw = tb.Toplevel(um_window)
+            addw.title("Adicionar Usuário")
+            addw.geometry("300x250")
+
+            tk.Label(addw, text="Login:").pack(pady=5)
+            login_var = tk.StringVar()
+            login_entry = tk.Entry(addw, textvariable=login_var)
+            login_entry.pack()
+
+            tk.Label(addw, text="Senha:").pack(pady=5)
+            pass_var = tk.StringVar()
+            pass_entry = tk.Entry(addw, textvariable=pass_var)
+            pass_entry.pack()
+
+            tk.Label(addw, text="Cargo (A1..A5):").pack(pady=5)
+            role_var = tk.StringVar(value="A1")
+            role_entry = tk.Entry(addw, textvariable=role_var)
+            role_entry.pack()
+
+            tk.Label(addw, text="Email:").pack(pady=5)
+            email_var = tk.StringVar()
+            email_entry = tk.Entry(addw, textvariable=email_var)
+            email_entry.pack()
+
+            def confirm_add():
+                user = login_var.get().strip()
+                pwd = pass_var.get().strip()
+                r = role_var.get().strip()
+                em = email_var.get().strip()
+                if not user or not pwd or not r or not em:
+                    messagebox.showwarning("Aviso", "Preencha todos os campos!")
+                    return
+                if user in db_users:
+                    messagebox.showwarning("Aviso", "Usuário já existe.")
+                    return
+                db_users[user] = {"password": pwd, "role": r, "email": em}
+                save_users_db(db_users)
+                refresh_users()
+                addw.destroy()
+
+            tb.Button(addw, text="Adicionar", bootstyle=SUCCESS, command=confirm_add).pack(pady=10)
+
+        def remove_user():
+            sel = listbox.curselection()
+            if not sel:
+                return
+            idx = sel[0]
+            line = listbox.get(idx)
+            # line ex: "admin | Cargo: A5 | Email: admin@exemplo.com"
+            user_name = line.split("|")[0].strip()
+            if user_name in db_users:
+                confirm = messagebox.askyesno("Confirmar", f"Remover usuário '{user_name}'?")
+                if confirm:
+                    db_users.pop(user_name)
+                    save_users_db(db_users)
+                    refresh_users()
+
+        add_btn = tb.Button(btn_frame, text="Adicionar Usuário", bootstyle=SUCCESS, command=add_user)
+        add_btn.pack(side=LEFT, padx=5)
+
+        rem_btn = tb.Button(btn_frame, text="Remover Usuário", bootstyle=DANGER, command=remove_user)
+        rem_btn.pack(side=LEFT, padx=5)
+
+    # --------------------------------------------
+    # Configurar cargo de notificação
+    # --------------------------------------------
+    def setup_notification_cargos(self):
+        cfg_window = tb.Toplevel(self.app.root)
+        cfg_window.title("Configurar Cargo de Notificação")
+        cfg_window.geometry("400x300")
+
+        lbl = tb.Label(cfg_window, text="Defina qual cargo (A1..A5) receberá notificação para cada evento:", font=("Helvetica", 10, "bold"))
+        lbl.pack(pady=5)
+
+        # Carregar config
+        notif_cfg = load_notification_cargos()
+
+        frame_events = tb.Frame(cfg_window)
+        frame_events.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Exemplo de "eventos" ou "status" => 'AguardandoAprovacao', 'Pendencias', ...
+        events = ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Autorizado"]
+        var_dict = {}
+
+        row_idx = 0
+        for ev in events:
+            tb.Label(frame_events, text=ev).grid(row=row_idx, column=0, sticky='w', padx=5, pady=5)
+            var = tk.StringVar(value=notif_cfg.get(ev, "A1"))
+            var_dict[ev] = var
+            entry = tk.Entry(frame_events, textvariable=var, width=5)
+            entry.grid(row=row_idx, column=1, sticky='w', padx=5, pady=5)
+            row_idx += 1
+
+        def save_notif():
+            for ev in events:
+                val = var_dict[ev].get().strip()
+                notif_cfg[ev] = val
+            save_notification_cargos(notif_cfg)
+            messagebox.showinfo("OK", "Notificação configurada.")
+            cfg_window.destroy()
+
+        tb.Button(cfg_window, text="Salvar", bootstyle=SUCCESS, command=save_notif).pack(pady=5)
 
     def open_column_selector(self, view_name):
         """
@@ -151,7 +345,6 @@ class SettingsManager:
         ]
         current_cols = self.app.custom_views.get(view_name, [])
 
-        # ESQUERDA
         left_frame = tb.Frame(container)
         left_frame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
 
@@ -161,11 +354,9 @@ class SettingsManager:
         list_avail = tk.Listbox(left_frame, selectmode='extended')
         list_avail.pack(fill="both", expand=True)
 
-        # CENTRO
         center_frame = tb.Frame(container)
         center_frame.pack(side="left", pady=5)
 
-        # DIREITA
         right_frame = tb.Frame(container)
         right_frame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
 
@@ -208,13 +399,11 @@ class SettingsManager:
             sel = list_select.curselection()
             if not sel:
                 return
-            # mover do menor pro maior
             for index in sel:
                 if index == 0:
                     continue
                 current_cols[index], current_cols[index-1] = current_cols[index-1], current_cols[index]
             load_lists()
-            # re-selecionar
             for i, idx in enumerate(sel):
                 new_idx = idx - 1 if idx > 0 else 0
                 list_select.selection_set(new_idx)
@@ -223,13 +412,11 @@ class SettingsManager:
             sel = list_select.curselection()
             if not sel:
                 return
-            # mover do maior pro menor
             for index in reversed(sel):
                 if index >= len(current_cols)-1:
                     continue
                 current_cols[index], current_cols[index+1] = current_cols[index+1], current_cols[index]
             load_lists()
-            # re-selecionar
             for i, idx in enumerate(sel):
                 new_idx = idx + 1 if idx < len(current_cols)-1 else idx
                 list_select.selection_set(new_idx)
@@ -287,7 +474,7 @@ class SettingsManager:
         scrollbar.pack(side="right", fill="y")
 
         self.entry_vars = {}
-        # Pegamos dicionário de máscaras
+        # Mapa de máscaras
         if hasattr(self.app.details_manager, 'FORM_FIELD_MAPPING'):
             field_map = self.app.details_manager.FORM_FIELD_MAPPING
         else:
