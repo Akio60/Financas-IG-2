@@ -52,7 +52,7 @@ class LoginWindow:
         self.canvas.place(x=0, y=0)
 
         self.canvas.create_rectangle(426, 0, 920, 520, fill="#FCFCFC", outline="")
-        self.canvas.create_rectangle(45, 95, 260, 100, fill="#FCFCFC", outline="")
+        self.canvas.create_rectangle(28, 100, 260, 103, fill="#FCFCFC", outline="")
 
         # Botão "Login"
         button_image_1 = PhotoImage(file=relative_to_assets("button_1.png"))
@@ -137,7 +137,7 @@ class LoginWindow:
             font=("Piazzolla Regular", 11 * -1)
         )
         self.canvas.create_text(
-            230, 460, anchor="nw",
+            230, 464, anchor="nw",
             text="vitorakioisawa@gmail.com\nl239207@dac.unicamp.br",
             fill="#FFFFFF",
             font=("Petrona Regular", 10)

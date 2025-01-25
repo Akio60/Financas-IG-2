@@ -57,6 +57,7 @@ class App:
 
         self.load_email_templates()
 
+        # Instancia managers
         self.details_manager = DetailsManager(self)
         self.statistics_manager = StatisticsManager(self)
         self.settings_manager = SettingsManager(self)
@@ -120,7 +121,7 @@ class App:
         self.main_frame = tb.Frame(self.root)
         self.main_frame.pack(fill=BOTH, expand=True)
 
-        # Frame esquerdo
+        # ----------- FRAME ESQUERDO -----------
         self.left_frame = tb.Frame(self.main_frame, width=200)
         self.left_frame.pack(side=LEFT, fill=Y)
 
@@ -157,7 +158,7 @@ class App:
 
         self.ready_for_payment_button = tb.Button(
             self.left_frame,
-            text="Solicitações pré efetuadas",
+            text="Solicitações esperando pagamento",
             bootstyle=OUTLINE,
             command=lambda: self.select_view("Pronto para pagamento")
         )
@@ -204,7 +205,7 @@ class App:
         )
         self.view_all_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
 
-        # Frame inferior
+        # ----------- FRAME INFERIOR -----------
         bottom_frame = tb.Frame(self.root)
         bottom_frame.pack(side=BOTTOM, fill=X)
 
@@ -223,7 +224,7 @@ class App:
         )
         logout_button.pack(side=RIGHT, padx=10, pady=10)
 
-        # Conteúdo principal
+        # ----------- FRAME CONTEÚDO PRINCIPAL -----------
         self.content_frame = tb.Frame(self.main_frame)
         self.content_frame.pack(side=LEFT, fill=BOTH, expand=True)
 
@@ -260,6 +261,11 @@ class App:
             bootstyle=PRIMARY,
             command=self.back_to_main_view
         )
+
+        # ========== LÓGICA DE VISIBILIDADE POR CARGO =============
+        if self.user_role == "A1":
+            # A1 - Visualizador -> sem config
+            self.settings_button.pack_forget()
 
     def logout(self):
         """Encerra completamente o programa."""
@@ -308,6 +314,7 @@ class App:
 
     # -------------- Navegação --------------
     def select_view(self, view_name):
+
         self.current_view = view_name
         self.search_var.set('')
 
@@ -327,6 +334,7 @@ class App:
         self.update_selected_button(view_name)
 
     def perform_search(self):
+
         self.current_view = "Search"
 
         if self.welcome_frame.winfo_ismapped():
@@ -361,6 +369,7 @@ class App:
             self.selected_button.configure(bootstyle=PRIMARY)
 
     def go_to_home(self):
+
         if self.table_frame.winfo_ismapped():
             self.table_frame.pack_forget()
         if self.details_frame and self.details_frame.winfo_ismapped():
@@ -391,7 +400,7 @@ class App:
 
     # -------------- Tabela --------------
     def update_table(self):
-        # Fecha detalhes
+
         if self.details_frame:
             if self.details_frame.winfo_ismapped():
                 self.details_frame.pack_forget()
@@ -412,11 +421,30 @@ class App:
             self.columns_to_display = self.custom_views[self.current_view]
         else:
             if self.current_view == "Aguardando aprovação":
-                self.columns_to_display = [...]
+                self.columns_to_display = [
+                    'Endereço de e-mail',
+                    'Nome completo (sem abreviações):',
+                    'Curso:',
+                    'Orientador',
+                    'Qual a agência de fomento?',
+                    'Título do projeto do qual participa:',
+                    'Motivo da solicitação',
+                    'Local de realização do evento',
+                    'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
+                    'Telefone de contato:'
+                ]
             elif self.current_view == "Pendências":
-                self.columns_to_display = [...]
+                self.columns_to_display = [
+                    'Carimbo de data/hora_str', 'Status', 'Nome completo (sem abreviações):',
+                    'Ultima Atualizacao', 'Valor', 'Curso:', 'Orientador', 'E-mail DAC:'
+                ]
             elif self.current_view == "Pronto para pagamento":
-                self.columns_to_display = [...]
+                self.columns_to_display = [
+                    'Carimbo de data/hora_str', 'Nome completo (sem abreviações):', 'Ultima Atualizacao',
+                    'Valor', 'Telefone de contato:', 'E-mail DAC:',
+                    'Endereço completo (logradouro, número, bairro, cidade e estado)', 'CPF:',
+                    'RG/RNE:', 'Dados bancários (banco, agência e conta) '
+                ]
             else:
                 self.columns_to_display = [
                     'Carimbo de data/hora_str', 'Nome completo (sem abreviações):',
@@ -505,6 +533,11 @@ class App:
         tv.heading(col, command=lambda: self.treeview_sort_column(tv, col, not reverse))
 
     def on_treeview_click(self, event):
+        if self.user_role in ["A1", "A5"]:
+            # Cargo A1 ou A5 não acessa detalhes
+            messagebox.showinfo("Aviso", "Você não tem acesso aos detalhes.")
+            return
+
         selected_item = self.tree.selection()
         if selected_item:
             row_index = int(selected_item[0])
@@ -513,8 +546,14 @@ class App:
 
     # -------------- Estatísticas --------------
     def show_statistics(self):
+        if self.user_role in ["A1"]:
+            messagebox.showinfo("Aviso", "Você não tem acesso às estatísticas.")
+            return
         self.statistics_manager.show_statistics()
 
     # -------------- Configurações --------------
     def open_settings(self):
+        if self.user_role == "A1":
+            messagebox.showinfo("Aviso", "Cargo A1 não tem acesso às configurações.")
+            return
         self.settings_manager.open_settings()
