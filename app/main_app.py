@@ -103,8 +103,18 @@ class App:
         except FileNotFoundError:
             self.email_templates = {
                 'Trabalho de Campo': 'Prezado(a) {Nome},\n\nPor favor, envie os documentos necessários...',
-                'Participação em eventos': 'Prezado(a) {Nome},\n\nPor favor, envie os documentos necessários...',
-                'Visita técnica': 'Prezado(a) {Nome},\n\nPor favor, envie...',
+                'Participação em eventos': """Prezado(a) {Nome},\n\nPor favor, envie os seguintes documentos: 1. DIÁRIAS para participação em EVENTOS:
+                - Certificado de participação no evento e certificado de apresentação do trabalho;
+                - Cópia dos comprovantes de embarque, compatíveis com as datas e local do evento; ou
+                - Cópia dos comprovantes de pedágio.
+
+                2. INSCRIÇÃO em eventos:
+                - Recibo da instituição organizadora do evento;
+                - Comprovante de pagamento da inscrição (cópia de boleto quitado, ou comprovante de transferência, ou comprovante de PIX, ou cópia da fatura do cartão de crédito);
+                - Certificado de participação no evento e certificado de apresentação do trabalho;
+                - Cópia dos comprovantes de embarque, compatíveis com as datas e local do evento; ou
+                - Cópia dos comprovantes de pedágio.',""",
+                'Visita técnica': 'Prezado(a) {Nome},\n\nPor favor, envie os seguintes documentos:\nCópia dos comprovantes de embarque, compatíveis com as datas e local do evento; ou \nCópia dos comprovantes de pedágio;\nDeclaração assinada do Coordenador Geral da Pós-Graduação;\nCarta do anfitrião do local visitado',
                 'Outros': 'Prezado(a) {Nome},\n\nPor favor, envie...',
                 'Aprovação': 'Prezado(a) {Nome},\n\nSua solicitação foi aprovada...',
                 'Pagamento': 'Prezado(a) {Nome},\n\nSeu pagamento foi efetuado...'
@@ -435,15 +445,14 @@ class App:
                 ]
             elif self.current_view == "Pendências":
                 self.columns_to_display = [
-                    'Carimbo de data/hora_str', 'Status', 'Nome completo (sem abreviações):',
-                    'Ultima Atualizacao', 'Valor', 'Curso:', 'Orientador', 'E-mail DAC:'
+                    'Carimbo de data/hora_str','Ultima Atualizacao', 'Status', 'Nome completo (sem abreviações):',
+                     'Valor', 'Curso:', 'Orientador'
                 ]
             elif self.current_view == "Pronto para pagamento":
                 self.columns_to_display = [
-                    'Carimbo de data/hora_str', 'Nome completo (sem abreviações):', 'Ultima Atualizacao',
-                    'Valor', 'Telefone de contato:', 'E-mail DAC:',
-                    'Endereço completo (logradouro, número, bairro, cidade e estado)', 'CPF:',
-                    'RG/RNE:', 'Dados bancários (banco, agência e conta) '
+                    'Carimbo de data/hora_str', 'Ultima Atualizacao', 'Nome completo (sem abreviações):',
+                    'Valor', 'Telefone de contato:',
+                    'Dados bancários (banco, agência e conta) '
                 ]
             else:
                 self.columns_to_display = [

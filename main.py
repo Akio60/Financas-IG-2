@@ -29,7 +29,6 @@ def main():
     smtp_port = 587
     sender_email = "financas.ig.nubia@gmail.com"
 
-
     sheets_handler = GoogleSheetsHandler(credentials_file, sheet_url)
     email_sender = EmailSender(smtp_server, smtp_port, sender_email)
 

@@ -1,268 +1,334 @@
-# statistics_manager.py
-import ttkbootstrap as tb
-from ttkbootstrap.constants import *
 import os
 import sys
+from pathlib import Path
+from datetime import datetime, date
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from datetime import datetime, date
+
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
+
+# Ajuste estes imports conforme sua estrutura
+# from google_sheets_handler import GoogleSheetsHandler
+
+# Ajuste se quiser que a cor do retângulo central seja "cinza"
+# e o fundo seja "#2C3E50".
+
+OUTPUT_PATH = Path(__file__).parent
+ASSETS_PATH = OUTPUT_PATH / Path(r"C:\Users\Vitor Akio\Desktop\graph\build\assets\frame0")
+
+BASE_DIR = Path(__file__).resolve().parent
+#ASSETS_PATH = BASE_DIR / "images" / "graph_view"
+
+def relative_to_assets(path: str) -> Path:
+    return ASSETS_PATH / Path(path)
 
 class StatisticsManager:
     def __init__(self, app):
-        self.app = app
-        self.stats_window = None  # referência para evitar janelas duplicadas
+        self.app = app  # para acessar self.app.sheets_handler etc.
+
+        # Armazena o Toplevel (janela de estatísticas) e o Frame de gráfico
+        self.stats_window = None
+        self.graph_frame = None
+
+        # Estado atual: qual "período" e qual "tipo" de estatística
+        self.current_period = "mes"  # "mes", "semestre", "ano", "total", "custom"
+        self.current_stat_type = "geral"  # "geral", "barras", "motivos", "agencias"
+
+        # Para armazenar os botões (caso queira mudar estilo ao clicar)
+        self.top_buttons = {}
+        self.left_buttons = {}
 
     def show_statistics(self):
-        """
-        Exibe (ou foca) a janela de estatísticas em um Toplevel com 4 abas:
-          - Estatísticas gerais
-          - Gráfico de barras (valores pagos)
-          - Motivos (pizza)
-          - Agências (pizza)
-        Cada aba tem radio buttons para (mês atual, este semestre, este ano, personalizado).
-        Se personalizado, exibe combo boxes de data início e data fim.
-        """
-        # Se a janela já existir, apenas foca
+        """Abre (ou foca) a janela no novo layout do Tkinter Designer."""
         if self.stats_window and self.stats_window.winfo_exists():
             self.stats_window.lift()
             return
 
+        # Cria a janela
         self.stats_window = tb.Toplevel(self.app.root)
-        self.stats_window.title("Estatísticas do Sistema")
-        self.stats_window.geometry("950x750")
+        self.stats_window.title("Estatísticas - Novo Layout")
+        self.stats_window.geometry("1000x750")
+        self.stats_window.configure(bg="#FFFFFF")
 
-        notebook = tb.Notebook(self.stats_window, bootstyle=PRIMARY)
-        notebook.pack(fill=BOTH, expand=True)
-
-        # ABA 1: Estatísticas gerais
-        self.tab_general = tb.Frame(notebook)
-        notebook.add(self.tab_general, text="Estatísticas Gerais")
-
-        self._build_period_selector(self.tab_general, self._filter_general_stats)
-
-        self.label_general_stats = tb.Label(self.tab_general, text="", font=("Helvetica", 12), justify='left')
-        self.label_general_stats.pack(pady=20, padx=20)
-
-        # ABA 2: Barras
-        self.tab_barras = tb.Frame(notebook)
-        notebook.add(self.tab_barras, text="Valores Pagos")
-
-        self._build_period_selector(self.tab_barras, self._filter_barras)
-        self.frame_barras = tb.Frame(self.tab_barras)
-        self.frame_barras.pack(fill=BOTH, expand=True)
-
-        # ABA 3: Motivos
-        self.tab_motivos = tb.Frame(notebook)
-        notebook.add(self.tab_motivos, text="Motivos")
-
-        self._build_period_selector(self.tab_motivos, self._filter_motivos)
-        self.frame_motivos = tb.Frame(self.tab_motivos)
-        self.frame_motivos.pack(fill=BOTH, expand=True)
-
-        # ABA 4: Agências
-        self.tab_agencias = tb.Frame(notebook)
-        notebook.add(self.tab_agencias, text="Agências")
-
-        self._build_period_selector(self.tab_agencias, self._filter_agencias)
-        self.frame_agencias = tb.Frame(self.tab_agencias)
-        self.frame_agencias.pack(fill=BOTH, expand=True)
-
-        close_button = tb.Button(
+        # Canvas de fundo (com retângulo azul e retângulo cinza)
+        self.canvas = tb.Canvas(
             self.stats_window,
-            text="Fechar",
-            bootstyle=PRIMARY,
-            command=self.stats_window.destroy
+            bg="#FFFFFF",
+            height=750,
+            width=1000,
+            bd=0,
+            highlightthickness=0,
+            relief="ridge"
         )
-        close_button.pack(pady=10)
+        self.canvas.place(x=0, y=0)
 
-        # Inicial
-        self._filter_general_stats()
-        self._filter_barras()
-        self._filter_motivos()
-        self._filter_agencias()
+        # Fundo azul
+        self.canvas.create_rectangle(
+            0.0, 0.0,
+            1000.0, 750.0,
+            fill="#2C3E50",
+            outline=""
+        )
 
-    # -----------------------------------------------------------
-    # BUILD PERIOD SELECTOR (mês atual, semestre, ano, personal)
-    # -----------------------------------------------------------
-    def _build_period_selector(self, parent_frame, filter_func):
-        """
-        Cria radio buttons para (mês atual, semestre, ano, personalizado)
-        e, se personalizado, exibe combo boxes de data início/fim.
-        """
-        period_frame = tb.Frame(parent_frame)
-        period_frame.pack(fill=X, pady=10)
+        # Retângulo cinza na parte central (para referência):
+        self.canvas.create_rectangle(
+            235.0, 158.0,
+            940.0, 696.0,
+            fill="#D9D9D9",
+            outline=""
+        )
 
-        self_var = tb.StringVar(value="mes")  # default: mês atual
+        # Frame (outra forma) em cima do retângulo
+        # Neste frame exibiremos os gráficos ou texto
+        self.graph_frame = tb.Frame(self.stats_window, width=705, height=538)
+        self.graph_frame.place(x=235, y=158)
 
-        # Radios
-        radios = [
-            ("Mês atual", "mes"),
-            ("Este semestre", "semestre"),
-            ("Este ano", "ano"),
-            ("Personalizado", "custom")
-        ]
-        col=0
-        for label, val in radios:
-            rb = tb.Radiobutton(period_frame, text=label, variable=self_var, value=val)
-            rb.grid(row=0, column=col, padx=5, pady=5, sticky='w')
-            col+=1
+        # Adiciona a imagem do logo (opcional)
+        try:
+            image_1 = tb.PhotoImage(file=relative_to_assets("image_1.png"))
+            self.canvas.create_image(94.0, 85.0, image=image_1)
+            # Para evitar garbage collection:
+            self.logo_img_ref = image_1
+        except:
+            pass
 
-        # Combos de data início e fim
-        date_frame = tb.Frame(period_frame)
-        date_frame.grid(row=1, column=0, columnspan=4, sticky='w')
+        # ============ BOTÕES DO TOPO (Período) ============
+        # 1) Último mês
+        btn1_img = tb.PhotoImage(file=relative_to_assets("button_1.png"))
+        btn1 = tb.Button(
+            self.stats_window,
+            image=btn1_img,
+            command=lambda: self.set_period("mes"),
+            borderwidth=0,
+            highlightthickness=0,
+            bootstyle=(SECONDARY),
+            relief="flat"
+        )
+        btn1.place(x=174.0, y=65.0, width=147.0, height=40.0)
+        self.top_buttons["mes"] = (btn1, btn1_img)
 
-        # Dia / Mês / Ano
-        days = [str(i).zfill(2) for i in range(1,32)]
-        months = [str(i).zfill(2) for i in range(1,13)]
-        years = [str(y) for y in range(2020, 2035)]
+        # 2) Último Semestre
+        btn2_img = tb.PhotoImage(file=relative_to_assets("button_2.png"))
+        btn2 = tb.Button(
+            self.stats_window,
+            image=btn2_img,
+            command=lambda: self.set_period("semestre"),
+            borderwidth=0,
+            highlightthickness=0,
+            bootstyle=(SECONDARY),
+            relief="flat"
+        )
+        btn2.place(x=338.0, y=65.0, width=147.0, height=40.0)
+        self.top_buttons["semestre"] = (btn2, btn2_img)
 
-        # Início
-        lbl_start = tb.Label(date_frame, text="Início:")
-        lbl_start.grid(row=0, column=0, padx=5, sticky='e')
+        # 3) Último Ano
+        btn3_img = tb.PhotoImage(file=relative_to_assets("button_3.png"))
+        btn3 = tb.Button(
+            self.stats_window,
+            image=btn3_img,
+            command=lambda: self.set_period("ano"),
+            borderwidth=0,
+            highlightthickness=0,
+            bootstyle=(SECONDARY),
+            relief="flat"
+        )
+        btn3.place(x=502.0, y=65.0, width=147.0, height=40.0)
+        self.top_buttons["ano"] = (btn3, btn3_img)
 
-        day_start = tb.Combobox(date_frame, values=days, width=3, state='readonly')
-        month_start = tb.Combobox(date_frame, values=months, width=3, state='readonly')
-        year_start = tb.Combobox(date_frame, values=years, width=5, state='readonly')
+        # 4) Total
+        btn4_img = tb.PhotoImage(file=relative_to_assets("button_4.png"))
+        btn4 = tb.Button(
+            self.stats_window,
+            image=btn4_img,
+            command=lambda: self.set_period("total"),
+            borderwidth=0,
+            highlightthickness=0,
+            bootstyle=(SECONDARY),
+            relief="flat"
+        )
+        btn4.place(x=666.0, y=65.0, width=147.0, height=40.0)
+        self.top_buttons["total"] = (btn4, btn4_img)
 
-        day_start.grid(row=0, column=1, padx=2)
-        month_start.grid(row=0, column=2, padx=2)
-        year_start.grid(row=0, column=3, padx=2)
+        # 5) Personalizado
+        btn5_img = tb.PhotoImage(file=relative_to_assets("button_5.png"))
+        btn5 = tb.Button(
+            self.stats_window,
+            image=btn5_img,
+            command=lambda: self.set_period("custom"),
+            borderwidth=0,
+            highlightthickness=0,
+            bootstyle=(SECONDARY),
+            relief="flat"
+        )
+        btn5.place(x=830.0, y=65.0, width=147.0, height=40.0)
+        self.top_buttons["custom"] = (btn5, btn5_img)
 
-        # Fim
-        lbl_end = tb.Label(date_frame, text="Fim:")
-        lbl_end.grid(row=0, column=4, padx=5, sticky='e')
+        # ============ BOTÕES LATERAIS (Tipo de Estatística) ============
+        # 1) Estatísticas Gerais
+        btn6_img = tb.PhotoImage(file=relative_to_assets("button_6.png"))
+        btn6 = tb.Button(
+            self.stats_window,
+            image=btn6_img,
+            command=lambda: self.set_stat_type("geral"),
+            borderwidth=0,
+            highlightthickness=0,
+            bootstyle=(SECONDARY),
+            relief="flat"
+        )
+        btn6.place(x=19.0, y=175.0, width=150.0, height=40.0)
+        self.left_buttons["geral"] = (btn6, btn6_img)
 
-        day_end = tb.Combobox(date_frame, values=days, width=3, state='readonly')
-        month_end = tb.Combobox(date_frame, values=months, width=3, state='readonly')
-        year_end = tb.Combobox(date_frame, values=years, width=5, state='readonly')
+        # 2) Valores Pagos (Barras)
+        btn7_img = tb.PhotoImage(file=relative_to_assets("button_7.png"))
+        btn7 = tb.Button(
+            self.stats_window,
+            image=btn7_img,
+            command=lambda: self.set_stat_type("barras"),
+            borderwidth=0,
+            highlightthickness=0,
+            bootstyle=(SECONDARY),
+            relief="flat"
+        )
+        btn7.place(x=19.0, y=236.0, width=150.0, height=40.0)
+        self.left_buttons["barras"] = (btn7, btn7_img)
 
-        day_end.grid(row=0, column=5, padx=2)
-        month_end.grid(row=0, column=6, padx=2)
-        year_end.grid(row=0, column=7, padx=2)
+        # 3) Motivos
+        btn8_img = tb.PhotoImage(file=relative_to_assets("button_8.png"))
+        btn8 = tb.Button(
+            self.stats_window,
+            image=btn8_img,
+            command=lambda: self.set_stat_type("motivos"),
+            borderwidth=0,
+            highlightthickness=0,
+            bootstyle=(SECONDARY),
+            relief="flat"
+        )
+        btn8.place(x=19.0, y=297.0, width=150.0, height=40.0)
+        self.left_buttons["motivos"] = (btn8, btn8_img)
 
-        # Botão filtrar
-        def do_filter():
-            filter_func(self_var.get(), day_start.get(), month_start.get(), year_start.get(),
-                        day_end.get(), month_end.get(), year_end.get())
+        # 4) Agências
+        btn9_img = tb.PhotoImage(file=relative_to_assets("button_9.png"))
+        btn9 = tb.Button(
+            self.stats_window,
+            image=btn9_img,
+            command=lambda: self.set_stat_type("agencias"),
+            borderwidth=0,
+            highlightthickness=0,
+            bootstyle=(SECONDARY),
+            relief="flat"
+        )
+        btn9.place(x=19.0, y=656.0, width=150.0, height=40.0)
+        self.left_buttons["agencias"] = (btn9, btn9_img)
 
-        filter_btn = tb.Button(date_frame, text="Filtrar", bootstyle=INFO, command=do_filter)
-        filter_btn.grid(row=0, column=8, padx=10)
+        # Carrega dados iniciais
+        self.redraw_chart()
 
-        # Armazena
-        parent_frame.period_var = self_var
-        parent_frame.day_start = day_start
-        parent_frame.month_start = month_start
-        parent_frame.year_start = year_start
-        parent_frame.day_end = day_end
-        parent_frame.month_end = month_end
-        parent_frame.year_end = year_end
+    # ----------------------------
+    # Muda o período atual e redesenha
+    # ----------------------------
+    def set_period(self, period):
+        self.current_period = period
+        # Se "custom", poderíamos abrir combos, mas aqui simplificamos
+        self.redraw_chart()
 
-    # -----------------------------------------------------------
-    # FUNÇÕES DE FILTRO DE DATA
-    # -----------------------------------------------------------
-    def _apply_period(self, df, period, ds, ms, ys, de, me, ye):
-        """
-        Aplica o período ao DataFrame, retornando DataFrame filtrado
-        period: 'mes', 'semestre', 'ano', 'custom'
-        ds/ms/ys: dia, mes, ano da data início (strings)
-        de/me/ye: dia, mes, ano da data fim
-        """
-        # Converte 'Carimbo de data/hora'
+    # ----------------------------
+    # Muda o tipo de estatística e redesenha
+    # ----------------------------
+    def set_stat_type(self, stype):
+        self.current_stat_type = stype
+        self.redraw_chart()
+
+    # ----------------------------
+    # Rotina central que aplica filtragem e chama
+    # a função de desenho correspondente
+    # ----------------------------
+    def redraw_chart(self):
+        # 1) Carregar DF e aplicar período
+        df = self.app.sheets_handler.load_data()
+
+        # Aplica a filtragem
+        df = self._apply_period_filter(df)
+
+        # 2) Limpamos o graph_frame
+        for widget in self.graph_frame.winfo_children():
+            widget.destroy()
+
+        # 3) Chamamos a função certa
+        if self.current_stat_type == "geral":
+            self.draw_geral_stats(df)
+        elif self.current_stat_type == "barras":
+            self.draw_barras(df)
+        elif self.current_stat_type == "motivos":
+            self.draw_motivos(df)
+        elif self.current_stat_type == "agencias":
+            self.draw_agencias(df)
+
+    # ----------------------------
+    # Aplica o período "mes", "semestre", "ano", "total", "custom"
+    # (similar ao _apply_period do antigo)
+    # ----------------------------
+    def _apply_period_filter(self, df):
         df['Carimbo de data/hora'] = pd.to_datetime(
             df['Carimbo de data/hora'],
             format='%d/%m/%Y %H:%M:%S',
             errors='coerce'
         )
-
-        if period == 'mes':
-            # mês atual
-            now = date.today()
+        now = date.today()
+        if self.current_period == "mes":
             start_date = datetime(now.year, now.month, 1)
-            # fim do mês
             if now.month == 12:
                 end_date = datetime(now.year, 12, 31, 23, 59, 59)
             else:
-                # Calcula próximo mês - 1 dia
                 nxt_month = date(now.year, now.month+1, 1)
                 end_date = datetime(nxt_month.year, nxt_month.month, 1, 23, 59, 59) - pd.Timedelta(days=1)
             mask = (df['Carimbo de data/hora'] >= start_date) & (df['Carimbo de data/hora'] <= end_date)
             return df[mask]
 
-        elif period == 'semestre':
-            now = date.today()
+        elif self.current_period == "semestre":
             if now.month <= 6:
-                # 1º semestre
                 start_date = datetime(now.year, 1, 1)
                 end_date = datetime(now.year, 6, 30, 23, 59, 59)
             else:
-                # 2º semestre
                 start_date = datetime(now.year, 7, 1)
                 end_date = datetime(now.year, 12, 31, 23, 59, 59)
             mask = (df['Carimbo de data/hora'] >= start_date) & (df['Carimbo de data/hora'] <= end_date)
             return df[mask]
 
-        elif period == 'ano':
-            now = date.today()
+        elif self.current_period == "ano":
             start_date = datetime(now.year, 1, 1)
             end_date = datetime(now.year, 12, 31, 23, 59, 59)
             mask = (df['Carimbo de data/hora'] >= start_date) & (df['Carimbo de data/hora'] <= end_date)
             return df[mask]
 
-        else:
-            # custom
-            start_date, end_date = None, None
-            try:
-                dd = int(ds)
-                mm = int(ms)
-                yy = int(ys)
-                start_date = datetime(yy, mm, dd)
-            except:
-                pass
-            try:
-                dd2 = int(de)
-                mm2 = int(me)
-                yy2 = int(ye)
-                end_date = datetime(yy2, mm2, dd2, 23, 59, 59)
-            except:
-                pass
-            if start_date is not None:
-                df = df[df['Carimbo de data/hora'] >= start_date]
-            if end_date is not None:
-                df = df[df['Carimbo de data/hora'] <= end_date]
+        elif self.current_period == "total":
+            # sem filtro
             return df
 
-    # -------------------------------------------------------------
-    # ABA 1: Estatísticas gerais
-    # -------------------------------------------------------------
-    def _filter_general_stats(self, period=None, ds=None, ms=None, ys=None, de=None, me=None, ye=None):
-        if not hasattr(self, 'tab_general'):
-            return
-        if period is None:
-            period = self.tab_general.period_var.get()
-            ds = self.tab_general.day_start.get()
-            ms = self.tab_general.month_start.get()
-            ys = self.tab_general.year_start.get()
-            de = self.tab_general.day_end.get()
-            me = self.tab_general.month_end.get()
-            ye = self.tab_general.year_end.get()
+        else:
+            # custom - poderia abrir combos para data start/end
+            # mas aqui, sem combos, retornamos df normal
+            return df
 
-        data = self.app.sheets_handler.load_data()
-        data = self._apply_period(data, period, ds, ms, ys, de, me, ye)
-
-        data['Valor'] = (
-            data['Valor'].astype(str)
+    # ----------------------------
+    # Funções de desenho
+    # ----------------------------
+    def draw_geral_stats(self, df):
+        # Calcular estatísticas e exibir como texto ou fig
+        df['Valor'] = (
+            df['Valor'].astype(str)
             .str.replace(',', '.')
             .str.extract(r'(\d+\.?\d*)')[0]
         )
-        data['Valor'] = pd.to_numeric(data['Valor'], errors='coerce').fillna(0)
+        df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
 
-        total_requests = len(data)
-        pending_requests = len(data[data['Status'].isin(['Autorizado', 'Aguardando documentação'])])
-        awaiting_payment_requests = len(data[data['Status'] == 'Pronto para pagamento'])
-        paid_requests = len(data[data['Status'] == 'Pago'])
-        total_paid_values = data[data['Status'] == 'Pago']['Valor'].sum()
-        total_released_values = data[data['Status'].isin(['Pago', 'Pronto para pagamento'])]['Valor'].sum()
+        total_requests = len(df)
+        pending_requests = len(df[df['Status'].isin(['Autorizado', 'Aguardando documentação'])])
+        awaiting_payment_requests = len(df[df['Status'] == 'Pronto para pagamento'])
+        paid_requests = len(df[df['Status'] == 'Pago'])
+        total_paid_values = df[df['Status'] == 'Pago']['Valor'].sum()
+        total_released_values = df[df['Status'].isin(['Pago', 'Pronto para pagamento'])]['Valor'].sum()
 
         stats_text = (
             f"Número total de solicitações: {total_requests}\n"
@@ -272,34 +338,20 @@ class StatisticsManager:
             f"Soma dos valores já pagos: R$ {total_paid_values:.2f}\n"
             f"Soma dos valores já liberados: R$ {total_released_values:.2f}\n"
         )
-        self.label_general_stats.config(text=stats_text)
 
-    def _filter_barras(self, period=None, ds=None, ms=None, ys=None, de=None, me=None, ye=None):
-        if not hasattr(self, 'tab_barras'):
-            return
-        if period is None:
-            period = self.tab_barras.period_var.get()
-            ds = self.tab_barras.day_start.get()
-            ms = self.tab_barras.month_start.get()
-            ys = self.tab_barras.year_start.get()
-            de = self.tab_barras.day_end.get()
-            me = self.tab_barras.month_end.get()
-            ye = self.tab_barras.year_end.get()
+        label = tb.Label(self.graph_frame, text=stats_text, font=("Helvetica", 12), justify=LEFT)
+        label.pack(pady=20, padx=20)
 
-        data = self.app.sheets_handler.load_data()
-        data = self._apply_period(data, period, ds, ms, ys, de, me, ye)
-
-        for w in self.frame_barras.winfo_children():
-            w.destroy()
-
-        fig, ax = plt.subplots(figsize=(6,4))
-        data['Valor'] = (
-            data['Valor'].astype(str)
+    def draw_barras(self, df):
+        # Cria uma figura e exibe no graph_frame
+        df['Valor'] = (
+            df['Valor'].astype(str)
             .str.replace(',', '.')
             .str.extract(r'(\d+\.?\d*)')[0]
         )
-        data['Valor'] = pd.to_numeric(data['Valor'], errors='coerce').fillna(0)
-        paid_data = data[data['Status'] == 'Pago'].copy()
+        df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
+
+        paid_data = df[df['Status'] == 'Pago'].copy()
         paid_data['Ultima Atualizacao'] = pd.to_datetime(
             paid_data['Ultima Atualizacao'],
             format='%d/%m/%Y %H:%M:%S',
@@ -307,41 +359,25 @@ class StatisticsManager:
         )
         paid_data = paid_data.dropna(subset=['Ultima Atualizacao'])
 
+        fig, ax = plt.subplots(figsize=(6,4))
         if not paid_data.empty:
-            paid_data_grouped = paid_data.groupby(paid_data['Ultima Atualizacao'].dt.date)['Valor'].sum()
-            paid_data_grouped.plot(kind='bar', ax=ax)
+            group = paid_data.groupby(paid_data['Ultima Atualizacao'].dt.date)['Valor'].sum()
+            group.plot(kind='bar', ax=ax)
             ax.set_title('Valores Pagos ao Longo do Tempo')
             ax.set_xlabel('Data')
             ax.set_ylabel('Valor Pago (R$)')
         else:
-            ax.text(0.5, 0.5, 'Nenhum pagamento realizado nesse período.', ha='center', va='center')
+            ax.text(0.5, 0.5, 'Nenhum pagamento no período', ha='center', va='center')
             ax.set_title('Valores Pagos')
             ax.axis('off')
 
-        canvas = FigureCanvasTkAgg(fig, master=self.frame_barras)
+        canvas = FigureCanvasTkAgg(fig, master=self.graph_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(pady=10)
+        canvas.get_tk_widget().pack()
 
-    def _filter_motivos(self, period=None, ds=None, ms=None, ys=None, de=None, me=None, ye=None):
-        if not hasattr(self, 'tab_motivos'):
-            return
-        if period is None:
-            period = self.tab_motivos.period_var.get()
-            ds = self.tab_motivos.day_start.get()
-            ms = self.tab_motivos.month_start.get()
-            ys = self.tab_motivos.year_start.get()
-            de = self.tab_motivos.day_end.get()
-            me = self.tab_motivos.month_end.get()
-            ye = self.tab_motivos.year_end.get()
-
-        data = self.app.sheets_handler.load_data()
-        data = self._apply_period(data, period, ds, ms, ys, de, me, ye)
-
-        for w in self.frame_motivos.winfo_children():
-            w.destroy()
-
+    def draw_motivos(self, df):
         fig, ax = plt.subplots(figsize=(6,4))
-        motivo_counts = data['Motivo da solicitação'].value_counts()
+        motivo_counts = df['Motivo da solicitação'].value_counts()
         if not motivo_counts.empty:
             motivo_counts.plot(kind='pie', ax=ax, autopct='%1.1f%%')
             ax.set_title('Distribuição por Motivo')
@@ -351,39 +387,22 @@ class StatisticsManager:
             ax.set_title('Motivos')
             ax.axis('off')
 
-        canvas = FigureCanvasTkAgg(fig, master=self.frame_motivos)
+        canvas = FigureCanvasTkAgg(fig, master=self.graph_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(pady=10)
+        canvas.get_tk_widget().pack()
 
-    def _filter_agencias(self, period=None, ds=None, ms=None, ys=None, de=None, me=None, ye=None):
-        if not hasattr(self, 'tab_agencias'):
-            return
-        if period is None:
-            period = self.tab_agencias.period_var.get()
-            ds = self.tab_agencias.day_start.get()
-            ms = self.tab_agencias.month_start.get()
-            ys = self.tab_agencias.year_start.get()
-            de = self.tab_agencias.day_end.get()
-            me = self.tab_agencias.month_end.get()
-            ye = self.tab_agencias.year_end.get()
-
-        data = self.app.sheets_handler.load_data()
-        data = self._apply_period(data, period, ds, ms, ys, de, me, ye)
-
-        for w in self.frame_agencias.winfo_children():
-            w.destroy()
-
+    def draw_agencias(self, df):
         fig, ax = plt.subplots(figsize=(6,4))
-        agencia_counts = data['Qual a agência de fomento?'].value_counts()
+        agencia_counts = df['Qual a agência de fomento?'].value_counts()
         if not agencia_counts.empty:
             agencia_counts.plot(kind='pie', ax=ax, autopct='%1.1f%%')
-            ax.set_title('Distribuição por Agência')
+            ax.set_title('Distribuição por Agência de Fomento')
             ax.set_ylabel('')
         else:
             ax.text(0.5, 0.5, 'Nenhum dado no período', ha='center', va='center')
             ax.set_title('Agências de Fomento')
             ax.axis('off')
 
-        canvas = FigureCanvasTkAgg(fig, master=self.frame_agencias)
+        canvas = FigureCanvasTkAgg(fig, master=self.graph_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(pady=10)
+        canvas.get_tk_widget().pack()

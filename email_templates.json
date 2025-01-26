@@ -1,7 +1,7 @@
 {
-    "Trabalho de Campo": "Prezado(a) {Nome},\n\nPor favor, envie os documentos necessários...qAAAAAAAAAAAAA",
-    "Participação em eventos": "Prezado(a) {Nome},\n\nPor favor, envie os documentos necessários...",
-    "Visita técnica": "Prezado(a) {Nome},\n\nPor favor, envie...",
+    "Trabalho de Campo": "Prezado(a) {Nome},\n\nPor favor, envie os documentos necessários...",
+    "Participação em eventos": "Prezado(a) {Nome},\n\nPor favor, envie os seguintes documentos: 1. DIÁRIAS para participação em EVENTOS:\n                - Certificado de participação no evento e certificado de apresentação do trabalho;\n                - Cópia dos comprovantes de embarque, compatíveis com as datas e local do evento; ou\n                - Cópia dos comprovantes de pedágio.\n\n                2. INSCRIÇÃO em eventos:\n                - Recibo da instituição organizadora do evento;\n                - Comprovante de pagamento da inscrição (cópia de boleto quitado, ou comprovante de transferência, ou comprovante de PIX, ou cópia da fatura do cartão de crédito);\n                - Certificado de participação no evento e certificado de apresentação do trabalho;\n                - Cópia dos comprovantes de embarque, compatíveis com as datas e local do evento; ou\n                - Cópia dos comprovantes de pedágio.',",
+    "Visita técnica": "Prezado(a) {Nome},\n\nPor favor, envie os seguintes documentos:\nCópia dos comprovantes de embarque, compatíveis com as datas e local do evento; ou \nCópia dos comprovantes de pedágio;\nDeclaração assinada do Coordenador Geral da Pós-Graduação;\nCarta do anfitrião do local visitado",
     "Outros": "Prezado(a) {Nome},\n\nPor favor, envie...",
     "Aprovação": "Prezado(a) {Nome},\n\nSua solicitação foi aprovada...",
     "Pagamento": "Prezado(a) {Nome},\n\nSeu pagamento foi efetuado..."
