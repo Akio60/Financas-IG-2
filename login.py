@@ -17,12 +17,8 @@ def load_users_db():
 
 USERS_DB = load_users_db()
 
-# Ajuste para que o caminho seja relativo à pasta do arquivo login.py
-# Ex.: se você tiver "assets/frame0" dentro do mesmo diretório do seu projeto,
-# faça algo como:
 BASE_DIR = Path(__file__).resolve().parent
-ASSETS_PATH = BASE_DIR / "images" / "assets" / "frame0"
-# Ajuste conforme sua estrutura real
+ASSETS_PATH = BASE_DIR / "images" / "assets" / "login"
 
 def relative_to_assets(path: str) -> Path:
     return ASSETS_PATH / Path(path)
