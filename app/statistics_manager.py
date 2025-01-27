@@ -393,7 +393,7 @@ class StatisticsManager:
 
         df = self.app.sheets_handler.load_data()
         # Considerar apenas Status=Pago e copiar
-        df = df[df['Status'] == 'Pago'].copy()  # <<< ADICIONADO .copy() >>>
+        df = df[df['Status'] == 'Pago'].copy()
 
         df['Carimbo de data/hora'] = pd.to_datetime(
             df['Carimbo de data/hora'],
@@ -431,7 +431,7 @@ class StatisticsManager:
         now = pd.Timestamp.now()
 
         # Garante uma cópia inicial
-        df = df.copy()  # <<< ADICIONADO .copy() >>>
+        df = df.copy()
 
         if df.empty:
             return df
@@ -443,8 +443,7 @@ class StatisticsManager:
             start_date = pd.Timestamp(year, month, 1)
             days_in_month = calendar.monthrange(year, month)[1]
             end_date = pd.Timestamp(year, month, days_in_month, 23,59,59)
-            # Filtra e gera nova cópia
-            df = df[(df['Carimbo de data/hora'] >= start_date) & (df['Carimbo de data/hora'] <= end_date)].copy()  # <<< ADICIONADO .copy() >>>
+            df = df[(df['Carimbo de data/hora'] >= start_date) & (df['Carimbo de data/hora'] <= end_date)].copy()
             # Adicionar col "SemanaMes"
             df["SemanaMes"] = df["Carimbo de data/hora"].apply(lambda d: (d.day-1)//7 +1 if pd.notnull(d) else None)
             return df
@@ -457,8 +456,7 @@ class StatisticsManager:
             else:
                 start_date = pd.Timestamp(year,7,1)
                 end_date   = pd.Timestamp(year,12,31,23,59,59)
-            df = df[(df['Carimbo de data/hora']>=start_date) & (df['Carimbo de data/hora']<=end_date)].copy()  # <<< ADICIONADO .copy() >>>
-            # Adicionar col "MesAbrev"
+            df = df[(df['Carimbo de data/hora']>=start_date) & (df['Carimbo de data/hora']<=end_date)].copy()
             df["MesAbrev"] = df["Carimbo de data/hora"].dt.strftime("%b")
             return df
 
@@ -466,7 +464,7 @@ class StatisticsManager:
             year = now.year
             start_date = pd.Timestamp(year,1,1)
             end_date   = pd.Timestamp(year,12,31,23,59,59)
-            df = df[(df['Carimbo de data/hora']>=start_date) & (df['Carimbo de data/hora']<=end_date)].copy()  # <<< ADICIONADO .copy() >>>
+            df = df[(df['Carimbo de data/hora']>=start_date) & (df['Carimbo de data/hora']<=end_date)].copy()
             df["MesAbrev"] = df["Carimbo de data/hora"].dt.strftime("%b")
             return df
 
@@ -479,7 +477,7 @@ class StatisticsManager:
                 start_date = pd.Timestamp(ys, ms, 1, 0,0,0)
                 days_in_end = calendar.monthrange(ye, me)[1]
                 end_date   = pd.Timestamp(ye, me, days_in_end, 23,59,59)
-                df = df[(df['Carimbo de data/hora']>=start_date)&(df['Carimbo de data/hora']<=end_date)].copy()  # <<< ADICIONADO .copy() >>>
+                df = df[(df['Carimbo de data/hora']>=start_date)&(df['Carimbo de data/hora']<=end_date)].copy()
             except:
                 messagebox.showwarning("Aviso","Datas inválidas, exibindo tudo.")
             return df
@@ -523,7 +521,7 @@ class StatisticsManager:
 
     # -------------- GRÁFICOS --------------
     def draw_barras(self, df):
-        """Exibe barras de valor (stacked por Motivo) – mas agora só Status=Pago."""
+        """Exibe barras de valor (stacked por Motivo) – Status=Pago."""
         import matplotlib.cm as cm
         self.current_figure, ax = plt.subplots(figsize=(7,5))
         self.current_figure.set_facecolor("#D9D9D9")
@@ -539,7 +537,7 @@ class StatisticsManager:
             if self.current_period == "mes":
                 # Agrupar por SemanaMes e Motivo
                 if "SemanaMes" not in df.columns:
-                    ax.text(0.5,0.5,"Sem semanário",ha='center',va='center')
+                    ax.text(0.5,0.5,"Sem 'SemanaMes'",ha='center',va='center')
                     ax.axis('off')
                 else:
                     pivot = df.groupby(["SemanaMes","Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
@@ -547,9 +545,9 @@ class StatisticsManager:
                         ax.text(0.5,0.5,"Sem dados no mês",ha='center',va='center')
                         ax.axis('off')
                     else:
-                        # forçar 5 semanas (1..5)
-                        weeks_index = [1,2,3,4,5]
-                        pivot = pivot.reindex(weeks_index, fill_value=0)
+                        # >>> Exibir 5 semanas mesmo sem dados <<<
+                        weeks_index = [1,2,3,4,5]  # <<< ADIÇÃO >>>
+                        pivot = pivot.reindex(weeks_index, fill_value=0)  # <<< ADIÇÃO >>>
                         x = np.arange(len(weeks_index))
                         bottom = np.zeros(len(x))
                         motives = pivot.columns
@@ -569,8 +567,8 @@ class StatisticsManager:
                         max_val = bottom.max()
                         ax.set_ylim(0, max_val*1.2 if max_val>0 else 1)
 
-            elif self.current_period == "semestre" or self.current_period == "ano":
-                # Agrupar por MesAbrev
+            elif self.current_period == "semestre":
+                # Agrupar por MesAbrev e Motivo
                 if "MesAbrev" not in df.columns:
                     ax.text(0.5,0.5,"Sem col MesAbrev",ha='center',va='center')
                     ax.axis('off')
@@ -580,13 +578,15 @@ class StatisticsManager:
                         ax.text(0.5,0.5,"Sem dados",ha='center',va='center')
                         ax.axis('off')
                     else:
-                        # Ordenar meses adequadamente (jan, fev,...)
-                        # só os que aparecem
-                        month_map = {"Jan":1,"Feb":2,"Mar":3,"Apr":4,"May":5,"Jun":6,
-                                     "Jul":7,"Aug":8,"Sep":9,"Oct":10,"Nov":11,"Dec":12}
-                        sorted_idx = sorted(pivot.index, key=lambda ab: month_map.get(ab.capitalize(), 13))
-                        pivot = pivot.reindex(sorted_idx)
-                        x = np.arange(len(pivot.index))
+                        # Determinar se estamos no 1º ou 2º semestre
+                        now = date.today()
+                        if now.month <= 6:
+                            semester_months = ["Jan","Feb","Mar","Apr","May","Jun"]  # <<< ADIÇÃO >>>
+                        else:
+                            semester_months = ["Jul","Aug","Sep","Oct","Nov","Dec"]  # <<< ADIÇÃO >>>
+                        # Reindex para exibir todos os 6 meses
+                        pivot = pivot.reindex(semester_months, fill_value=0)  # <<< ADIÇÃO >>>
+                        x = np.arange(len(semester_months))
                         bottom = np.zeros(len(x))
                         motives = pivot.columns
                         color_map = cm.get_cmap('Blues', len(motives)+1)
@@ -600,11 +600,43 @@ class StatisticsManager:
                                 ax.text(i, val*1.01, f"{val:.2f}",
                                         ha='center', va='bottom', fontsize=8, color='black')
                         ax.set_xticks(x)
-                        ax.set_xticklabels(pivot.index, rotation=45, ha='right')
+                        ax.set_xticklabels(semester_months, rotation=45, ha='right')  # <<< ADIÇÃO >>>
                         ax.legend(fontsize=8)
                         max_val = bottom.max()
                         ax.set_ylim(0, max_val*1.2 if max_val>0 else 1)
 
+            elif self.current_period == "ano":
+                # Agrupar por MesAbrev
+                if "MesAbrev" not in df.columns:
+                    ax.text(0.5,0.5,"Sem col MesAbrev",ha='center',va='center')
+                    ax.axis('off')
+                else:
+                    pivot = df.groupby(["MesAbrev","Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
+                    if pivot.empty:
+                        ax.text(0.5,0.5,"Sem dados",ha='center',va='center')
+                        ax.axis('off')
+                    else:
+                        # >>> Reindex para 12 meses <<<
+                        all_months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]  # <<< ADIÇÃO >>>
+                        pivot = pivot.reindex(all_months, fill_value=0)  # <<< ADIÇÃO >>>
+                        x = np.arange(len(all_months))
+                        bottom = np.zeros(len(x))
+                        motives = pivot.columns
+                        color_map = cm.get_cmap('Blues', len(motives)+1)
+                        for i, motive in enumerate(motives[::-1]):
+                            vals = pivot[motive].values
+                            c = color_map(float(i+1)/len(motives))
+                            ax.bar(x, vals, bottom=bottom, color=c, label=motive)
+                            bottom += vals
+                        for i, val in enumerate(bottom):
+                            if val>0:
+                                ax.text(i, val*1.01, f"{val:.2f}",
+                                        ha='center', va='bottom', fontsize=8, color='black')
+                        ax.set_xticks(x)
+                        ax.set_xticklabels(all_months, rotation=45, ha='right')
+                        ax.legend(fontsize=8)
+                        max_val = bottom.max()
+                        ax.set_ylim(0, max_val*1.2 if max_val>0 else 1)
             else:
                 # total => agrupa por YearSem
                 if "YearSem" not in df.columns:
@@ -700,6 +732,114 @@ class StatisticsManager:
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
+    def draw_acumulado(self, df):
+        """
+        Exibe gráfico de linha com valor acumulado ao longo do tempo,
+        mas para mes/semestre/ano reindexa do mesmo jeito que "barras".
+        """
+        self.current_figure, ax = plt.subplots(figsize=(7,5))
+        self.current_figure.set_facecolor("#D9D9D9")
+        ax.set_facecolor("#D9D9D9")
+        ax.set_ylabel("Valor Acumulado (R$)")
+
+        if df.empty:
+            ax.text(0.5, 0.5, "Sem dados (pagos)", ha='center', va='center')
+            ax.axis('off')
+        else:
+            df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
+
+            # ------------------------------------------------------------------
+            # Ao invés de plotar ponto a ponto, agrupar nos períodos específicos
+            # e forçar reindex para exibir mesmo sem dados.
+            # ------------------------------------------------------------------
+            if self.current_period == "mes":
+                if "SemanaMes" not in df.columns:
+                    ax.text(0.5,0.5,"Sem 'SemanaMes'",ha='center',va='center')
+                    ax.axis('off')
+                else:
+                    group = df.groupby("SemanaMes")["Valor"].sum()
+                    # Forçar 5 semanas
+                    weeks_index = [1,2,3,4,5]  # <<< ADIÇÃO >>>
+                    group = group.reindex(weeks_index, fill_value=0)  # <<< ADIÇÃO >>>
+                    # Agora faz cumsum
+                    cumvals = group.cumsum()
+                    x = np.arange(1, 6)
+                    ax.plot(x, cumvals, color="navy", marker="o", linewidth=2)
+                    for i, val in enumerate(cumvals):
+                        if val>0:
+                            ax.text(x[i], val, f"{val:.2f}",
+                                    ha='left', va='bottom', color='black', fontsize=9)
+                    ax.set_xticks(x)
+                    ax.set_xticklabels([f"Sem{n}" for n in weeks_index])
+                    ax.set_title("Acumulado (Mês)")
+
+            elif self.current_period == "semestre":
+                if "MesAbrev" not in df.columns:
+                    ax.text(0.5,0.5,"Sem col MesAbrev",ha='center',va='center')
+                    ax.axis('off')
+                else:
+                    group = df.groupby("MesAbrev")["Valor"].sum()
+                    # Determinar 1º ou 2º semestre
+                    now = date.today()
+                    if now.month <= 6:
+                        semester_months = ["Jan","Feb","Mar","Apr","May","Jun"]
+                    else:
+                        semester_months = ["Jul","Aug","Sep","Oct","Nov","Dec"]
+                    group = group.reindex(semester_months, fill_value=0)  # <<< ADIÇÃO >>>
+                    cumvals = group.cumsum()
+                    x = np.arange(len(semester_months))
+                    ax.plot(x, cumvals, color="navy", marker="o", linewidth=2)
+                    for i, val in enumerate(cumvals):
+                        if val>0:
+                            ax.text(x[i], val, f"{val:.2f}",
+                                    ha='left', va='bottom', color='black', fontsize=9)
+                    ax.set_xticks(x)
+                    ax.set_xticklabels(semester_months, rotation=45, ha='right')
+                    ax.set_title("Acumulado (Semestre)")
+
+            elif self.current_period == "ano":
+                if "MesAbrev" not in df.columns:
+                    ax.text(0.5,0.5,"Sem col MesAbrev",ha='center',va='center')
+                    ax.axis('off')
+                else:
+                    group = df.groupby("MesAbrev")["Valor"].sum()
+                    all_months = ["Jan","Feb","Mar","Apr","May","Jun",
+                                  "Jul","Aug","Sep","Oct","Nov","Dec"]
+                    group = group.reindex(all_months, fill_value=0)  # <<< ADIÇÃO >>>
+                    cumvals = group.cumsum()
+                    x = np.arange(12)
+                    ax.plot(x, cumvals, color="navy", marker="o", linewidth=2)
+                    for i, val in enumerate(cumvals):
+                        if val>0:
+                            ax.text(x[i], val, f"{val:.2f}",
+                                    ha='left', va='bottom', color='black', fontsize=9)
+                    ax.set_xticks(x)
+                    ax.set_xticklabels(all_months, rotation=45, ha='right')
+                    ax.set_title("Acumulado (Ano)")
+
+            else:
+                # Para "total" e "custom", manter lógica antiga
+                df = df.sort_values(by=["Carimbo de data/hora"])
+                df['Acumulado'] = df['Valor'].cumsum()
+
+                times = df['Carimbo de data/hora']
+                vals = df['Acumulado']
+
+                if len(times)==0:
+                    ax.text(0.5,0.5,"Sem dados",ha='center',va='center')
+                    ax.axis('off')
+                else:
+                    ax.plot(times, vals, color="navy", marker="o", linewidth=2)
+                    max_val = vals.iloc[-1]  # valor final
+                    max_time = times.iloc[-1]
+                    ax.text(max_time, max_val, f"{max_val:.2f}",
+                            ha='left', va='bottom', color='black', fontsize=9)
+                    ax.set_title("Valor Acumulado (Pagos)")
+
+        canvas = FigureCanvasTkAgg(self.current_figure, master=self.graph_frame)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
     def draw_agencias(self, df):
         import matplotlib.cm as cm
         self.current_figure, ax = plt.subplots(figsize=(7,5))
@@ -720,45 +860,6 @@ class StatisticsManager:
                                   colors=colors, autopct='%1.1f%%')
             ax.set_title("Agências")
             ax.legend(wedges, agencias.index, loc='best', fontsize=8)
-
-        canvas = FigureCanvasTkAgg(self.current_figure, master=self.graph_frame)
-        canvas.draw()
-        canvas.get_tk_widget().pack(fill="both", expand=True)
-
-    
-    def draw_acumulado(self, df):
-        """
-        Exibe gráfico de linha com valor acumulado ao longo do tempo.
-        Exibimos apenas o texto do maior valor final.
-        """
-        self.current_figure, ax = plt.subplots(figsize=(7,5))
-        self.current_figure.set_facecolor("#D9D9D9")
-        ax.set_facecolor("#D9D9D9")
-        ax.set_ylabel("Valor Acumulado (R$)")
-
-        if df.empty:
-            ax.text(0.5, 0.5, "Sem dados (pagos)", ha='center', va='center')
-            ax.axis('off')
-        else:
-            df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
-            # Ordena por data
-            df = df.sort_values(by=["Carimbo de data/hora"])
-            df['Acumulado'] = df['Valor'].cumsum()
-
-            times = df['Carimbo de data/hora']
-            vals = df['Acumulado']
-
-            if len(times)==0:
-                ax.text(0.5,0.5,"Sem dados",ha='center',va='center')
-                ax.axis('off')
-            else:
-                ax.plot(times, vals, color="navy", marker="o", linewidth=2)
-                max_val = vals.iloc[-1]  # valor final
-                max_time = times.iloc[-1]
-                # Exibe texto do valor final
-                ax.text(max_time, max_val, f"{max_val:.2f}",
-                        ha='left', va='bottom', color='black', fontsize=9)
-                ax.set_title("Valor Acumulado (Pagos)")
 
         canvas = FigureCanvasTkAgg(self.current_figure, master=self.graph_frame)
         canvas.draw()
