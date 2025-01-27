@@ -34,7 +34,21 @@ class LoginWindow:
         self.role = None      # Armazena o cargo (A1..A5)
 
         self._build_ui()
+        self.center_window()
 
+    def center_window(self):
+        """
+        Centraliza a janela na tela com base em sua largura e altura atuais.
+        """
+        self.window.update_idletasks()  # Garante que a geometria já foi atualizada
+        w = 920  # Largura definida
+        h = 520  # Altura definida
+        ws = self.window.winfo_screenwidth()
+        hs = self.window.winfo_screenheight()
+        x = (ws - w) // 2
+        y = (hs - h) // 2
+        self.window.geometry(f"{w}x{h}+{x}+{y-60}")
+        
     def _build_ui(self):
         self.canvas = Canvas(
             self.window,

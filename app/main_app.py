@@ -126,7 +126,7 @@ class App:
 
     def setup_ui(self):
         self.root.title("Controle de Orçamento IG - PPG UNICAMP")
-        self.root.geometry("1000x700")
+        self.root.state("zoomed")
 
         self.main_frame = tb.Frame(self.root)
         self.main_frame.pack(fill=BOTH, expand=True)
