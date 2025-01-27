@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import Canvas, Entry, PhotoImage, messagebox
 from pathlib import Path
+from PIL import Image,ImageTk
 import os
 import json
 import webbrowser
@@ -97,9 +98,13 @@ def relative_to_assets(path: str) -> Path:
 class LoginWindow:
     def __init__(self):
         self.window = tk.Tk()
-        self.window.geometry("920x520")
+        self.window.geometry("880x520")
         self.window.configure(bg="#3A7FF6")
         self.window.title("Tela de Login")
+        im = Image.open('bitmap_UNI.ico')
+        photo = ImageTk.PhotoImage(im)
+        self.window.wm_iconphoto(True, photo)
+        
 
         self.username = None  # Armazena o nome de usuário
         self.role = None      # Armazena o cargo (A1..A5)
@@ -112,7 +117,7 @@ class LoginWindow:
         Centraliza a janela na tela com base em sua largura e altura atuais.
         """
         self.window.update_idletasks()  # Garante que a geometria já foi atualizada
-        w = 920  # Largura definida
+        w = 880  # Largura definida
         h = 520  # Altura definida
         ws = self.window.winfo_screenwidth()
         hs = self.window.winfo_screenheight()
@@ -245,7 +250,7 @@ class LoginWindow:
             font=("Petrona Regular", 10)
         )
         self.canvas.create_text(
-            749, 498, anchor="nw",
+            720, 498, anchor="nw",
             text="ver.: 2.3.03 - distrib.: 1/02/2025",
             fill="#000000",
             font=("Rokkitt Bold", 8)
