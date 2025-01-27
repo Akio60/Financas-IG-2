@@ -24,7 +24,6 @@ ASSETS_PATH = BASE_DIR / "images" / "assets" / "graphview"
 
 def relative_to_assets(path: str) -> Path:
     final_path = ASSETS_PATH / Path(path)
-    print("[DEBUG] Tentando carregar imagem em:", final_path)
     return final_path
 
 # ---------------------------------------------------------
@@ -166,7 +165,7 @@ class StatisticsManager:
 
         # Frame de gráficos
         self.graph_frame = tk.Frame(self.main_canvas, bg="#D9D9D9")
-        self.graph_frame.place(x=260, y=110, width=700, height=610)
+        self.graph_frame.place(x=250, y=110, width=720, height=610)
 
         # Tentar imagem
         try:
@@ -676,7 +675,7 @@ class StatisticsManager:
 
     def draw_motivos_side_by_side(self, df):
         import matplotlib.cm as cm
-        self.current_figure, (ax_bar, ax_pie) = plt.subplots(1,2, figsize=(10,5))
+        self.current_figure, (ax_bar, ax_pie) = plt.subplots(1,2, figsize=(8,5))
         self.current_figure.set_facecolor("#D9D9D9")
         ax_bar.set_facecolor("#D9D9D9")
         ax_pie.set_facecolor("#D9D9D9")
