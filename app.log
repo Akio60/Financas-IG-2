@@ -1,0 +1,16 @@
+2025-01-28 22:37:33,585 [INFO] update_status: A3 mudou status para Pago, timestamp=19/12/2023 20:04:39
+2025-01-28 22:37:36,870 [ERROR] Erro ao enviar e-mail: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials d9443c01a7336-21da3d9c59asm88221825ad.29 - gsmtp')
+2025-01-28 22:44:06,111 [INFO] update_status: A3 mudou status para Autorizado, timestamp=28/01/2025 16:36:43
+2025-01-28 22:44:07,077 [INFO] update_value: A3 alterou valor para 2165, timestamp=28/01/2025 16:36:43
+2025-01-28 22:44:08,963 [ERROR] Erro ao enviar e-mail: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials d9443c01a7336-21da3ea2430sm89470515ad.65 - gsmtp')
+2025-01-28 22:44:09,591 [ERROR] Erro ao enviar e-mail: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials d9443c01a7336-21da424f61fsm87739525ad.237 - gsmtp')
+2025-01-28 22:47:44,525 [INFO] update_status: A3 mudou status para Pronto para pagamento, timestamp=09/11/2024 11:30:23
+2025-01-28 22:47:47,341 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-01-28 22:48:06,220 [INFO] update_status: A3 mudou status para Pronto para pagamento, timestamp=28/01/2025 16:36:43
+2025-01-28 22:48:09,031 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-01-28 22:48:18,096 [INFO] update_status: A3 mudou status para Pronto para pagamento, timestamp=12/11/2023 20:04:39
+2025-01-28 22:48:23,294 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-01-28 22:49:16,990 [INFO] update_status: A3 mudou status para Pago, timestamp=09/11/2024 11:30:23
+2025-01-28 22:49:19,692 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-01-28 22:50:30,246 [INFO] update_status: A3 mudou status para Pago, timestamp=28/01/2025 16:36:43
+2025-01-28 22:50:33,551 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'

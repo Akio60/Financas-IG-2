@@ -6,7 +6,6 @@ import os
 import json
 import webbrowser
 
-# ---- Definição da classe RoundedButton (copiada/adaptada do statistics_manager.py)
 class RoundedButton(tk.Canvas):
     def __init__(
         self, parent, width=100, height=40, radius=10,
@@ -78,8 +77,6 @@ class RoundedButton(tk.Canvas):
         if self.command:
             self.command()
 
-# ------------------------------------------------------------------------
-
 USERS_DB_FILE = "users_db.json"
 def load_users_db():
     if os.path.exists(USERS_DB_FILE):
@@ -104,26 +101,21 @@ class LoginWindow:
         im = Image.open('bitmap_UNI.ico')
         photo = ImageTk.PhotoImage(im)
         self.window.wm_iconphoto(True, photo)
-        
 
-        self.username = None  # Armazena o nome de usuário
-        self.role = None      # Armazena o cargo (A1..A5)
+        self.username = None
+        self.role = None
 
         self._build_ui()
         self.center_window()
 
     def center_window(self):
-        """
-        Centraliza a janela na tela com base em sua largura e altura atuais.
-        """
-        self.window.update_idletasks()  # Garante que a geometria já foi atualizada
-        w = 880  # Largura definida
-        h = 520  # Altura definida
+        self.window.update_idletasks()
+        w = 880
+        h = 520
         ws = self.window.winfo_screenwidth()
         hs = self.window.winfo_screenheight()
         x = (ws - w) // 2
         y = (hs - h) // 2
-        # Ajustamos ligeiramente com "-60" para ficar um pouco acima do centro
         self.window.geometry(f"{w}x{h}+{x}+{y-60}")
 
     def _build_ui(self):
@@ -138,27 +130,20 @@ class LoginWindow:
         )
         self.canvas.place(x=0, y=0)
 
-        # Fundo à direita
         self.canvas.create_rectangle(426, 0, 920, 520, fill="#FCFCFC", outline="")
-        # Pequena linha decorativa
         self.canvas.create_rectangle(28, 100, 260, 103, fill="#FCFCFC", outline="")
 
-        # ------------------------------
-        # Novo Botão "Login" (RoundedButton)
-        # ------------------------------
         def on_login():
-            # Chama a mesma função do antigo 'command=self._attempt_login'
             self._attempt_login()
 
-        # Criamos o RoundedButton com o mesmo estilo usado em 'statistics_manager.py'
         self.login_button = RoundedButton(
             parent=self.canvas,
             width=180,
             height=55,
             radius=10,
-            bg_color="#2C3E50",     # cor do fundo
-            fg_color="#ffffff",        # cor do texto
-            border_color="#ffffff", # sem borda visível
+            bg_color="#2C3E50",
+            fg_color="#ffffff",
+            border_color="#ffffff",
             border_width=5,
             text="Login",
             font=("Helvetica", 15, "bold"),
@@ -166,9 +151,6 @@ class LoginWindow:
         )
         self.login_button.place(x=557, y=361)
 
-        # ------------------------------
-        # Campo Senha
-        # ------------------------------
         entry_image_1 = PhotoImage(file=relative_to_assets("entry_1.png"))
         self.canvas.create_image(654.5, 285.0, image=entry_image_1)
         self.entry_image_1 = entry_image_1
@@ -189,9 +171,6 @@ class LoginWindow:
             font=("Roboto Bold", 20)
         )
 
-        # ------------------------------
-        # Campo Login
-        # ------------------------------
         entry_image_2 = PhotoImage(file=relative_to_assets("entry_2.png"))
         self.canvas.create_image(654.5, 155.0, image=entry_image_2)
         self.entry_image_2 = entry_image_2
@@ -211,9 +190,6 @@ class LoginWindow:
             font=("Roboto Bold", 20)
         )
 
-        # ------------------------------
-        # Título e textos adicionais
-        # ------------------------------
         self.canvas.create_text(
             28, 28, anchor="nw",
             text="Sistema de Gestão de \nRequerimentos",
@@ -256,49 +232,26 @@ class LoginWindow:
             font=("Rokkitt Bold", 8)
         )
 
-        # ------------------------------
-        # Imagem do canto inferior esquerdo com hyperlink
-        # ------------------------------
         image_image_1 = PhotoImage(file=relative_to_assets("image_1.png"))
 
-        # Cria um Label com a imagem, definindo cursor "mão"
         self.hyperlink_label = tk.Label(
             self.canvas,
             image=image_image_1,
             bg="#2C3E50",
             cursor="hand2"
         )
-        self.hyperlink_label.image = image_image_1  # evitar garbage collector
-        self.hyperlink_label.place(x=90, y=465)  # ajusta posição conforme necessário
+        self.hyperlink_label.image = image_image_1
+        self.hyperlink_label.place(x=90, y=465)
 
         def open_link(event=None):
             webbrowser.open("https://github.com/Akio60/Financas-IG-2", new=1)
 
         self.hyperlink_label.bind("<Button-1>", open_link)
 
-        # ------------------------------
-        # Ajustes finais
-        # ------------------------------
         self.window.resizable(False, False)
-
-        # Focar no primeiro campo e configurar TAB/Enter
         self.entry_user.focus_set()
-
-        # Vincular TAB: mover foco
-        self.entry_user.bind("<Tab>", self._focus_to_pass)
-        self.entry_pass.bind("<Tab>", self._focus_to_user)
-
-        # Vincular Enter: tentativa de login
         self.entry_user.bind("<Return>", lambda e: self._attempt_login())
         self.entry_pass.bind("<Return>", lambda e: self._attempt_login())
-
-    def _focus_to_pass(self, event):
-        self.entry_pass.focus_set()
-        return "break"  # Impede o comportamento padrão do Tab
-
-    def _focus_to_user(self, event):
-        self.entry_user.focus_set()
-        return "break"
 
     def _attempt_login(self):
         user = self.entry_user.get().strip()
@@ -316,14 +269,11 @@ class LoginWindow:
 
     def run(self):
         self.window.mainloop()
-        # Retorna tupla (username, role) ou (None, None) se não logou
         if self.username is None:
-            # Significa que o usuário fechou sem logar
             return (None, None)
         return (self.username, self.role)
 
 def show_login():
     login_screen = LoginWindow()
     username, role = login_screen.run()
-    # Se username é None => login cancelado
     return (username, role)

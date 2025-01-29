@@ -1,5 +1,3 @@
-# app/main_app.py
-
 import os
 import json
 import pandas as pd
@@ -10,7 +8,6 @@ from PIL import Image, ImageTk
 from tkinter import messagebox, BOTH, LEFT, Y, RIGHT, X, END
 import sys
 
-# Imports internos
 from constants import (
     ALL_COLUMNS_DETAIL, ALL_COLUMNS, BG_COLOR, BUTTON_BG_COLOR, FRAME_BG_COLOR,
     STATUS_COLORS, COLUMN_DISPLAY_NAMES
@@ -18,7 +15,6 @@ from constants import (
 from google_sheets_handler import GoogleSheetsHandler
 from email_sender import EmailSender
 
-# Importando nossos "managers"
 from .details_manager import DetailsManager
 from .statistics_manager import StatisticsManager
 from .settings_manager import SettingsManager
@@ -31,9 +27,10 @@ class App:
         self.user_role = user_role
         self.user_name = user_name
 
-        # Carrega DF inicial
+        # Carrega DF
         self.data = self.sheets_handler.load_data()
 
+        # Variáveis de controle
         self.detail_columns_to_display = ALL_COLUMNS_DETAIL.copy()
         self.columns_to_display = []
         self.detail_widgets = {}
@@ -47,22 +44,30 @@ class App:
         self.treeview_data = None
         self.email_templates = {}
 
+        # Cores
         self.bg_color = BG_COLOR
         self.button_bg_color = BUTTON_BG_COLOR
         self.frame_bg_color = FRAME_BG_COLOR
         self.status_colors = STATUS_COLORS
         self.column_display_names = COLUMN_DISPLAY_NAMES
 
+        # Variável de busca
         self.search_var = tb.StringVar()
-
-        self.load_email_templates()
 
         # Instancia managers
         self.details_manager = DetailsManager(self)
         self.statistics_manager = StatisticsManager(self)
         self.settings_manager = SettingsManager(self)
 
+        # Carrega templates de e-mail
+        self.load_email_templates()
+
+        # Frame principal
         self.setup_ui()
+
+        # Este frame da tabela será criado SOB DEMANDA
+        self.table_frame = None
+        self.tree = None
 
         # Colunas customizadas
         self.custom_views = {
@@ -76,7 +81,7 @@ class App:
                 'Carimbo de data/hora_str',
                 'Status',
                 'Nome completo (sem abreviações):',
-                'Ultima Atualizacao',
+                'Ultima Atualizacao','UltimoUsuario',
                 'Valor',
                 'Curso:',
                 'Orientador',
@@ -85,7 +90,7 @@ class App:
             "Pronto para pagamento": [
                 'Carimbo de data/hora_str',
                 'Nome completo (sem abreviações):',
-                'Ultima Atualizacao',
+                'Ultima Atualizacao','UltimoUsuario',
                 'Valor',
                 'Telefone de contato:',
                 'E-mail DAC:',
@@ -102,19 +107,9 @@ class App:
                 self.email_templates = json.load(f)
         except FileNotFoundError:
             self.email_templates = {
-                'Trabalho de Campo': 'Prezado(a) {Nome},\n\nPor favor, envie os documentos necessários...',
-                'Participação em eventos': """Prezado(a) {Nome},\n\nPor favor, envie os seguintes documentos: 1. DIÁRIAS para participação em EVENTOS:
-                - Certificado de participação no evento e certificado de apresentação do trabalho;
-                - Cópia dos comprovantes de embarque, compatíveis com as datas e local do evento; ou
-                - Cópia dos comprovantes de pedágio.
-
-                2. INSCRIÇÃO em eventos:
-                - Recibo da instituição organizadora do evento;
-                - Comprovante de pagamento da inscrição (cópia de boleto quitado, ou comprovante de transferência, ou comprovante de PIX, ou cópia da fatura do cartão de crédito);
-                - Certificado de participação no evento e certificado de apresentação do trabalho;
-                - Cópia dos comprovantes de embarque, compatíveis com as datas e local do evento; ou
-                - Cópia dos comprovantes de pedágio.',""",
-                'Visita técnica': 'Prezado(a) {Nome},\n\nPor favor, envie os seguintes documentos:\nCópia dos comprovantes de embarque, compatíveis com as datas e local do evento; ou \nCópia dos comprovantes de pedágio;\nDeclaração assinada do Coordenador Geral da Pós-Graduação;\nCarta do anfitrião do local visitado',
+                'Trabalho de Campo': 'Prezado(a) {Nome},\n\nPor favor, envie...',
+                'Participação em eventos': 'Prezado(a) {Nome},\n\nPor favor, envie...',
+                'Visita técnica': 'Prezado(a) {Nome},\n\nPor favor, envie...',
                 'Outros': 'Prezado(a) {Nome},\n\nPor favor, envie...',
                 'Aprovação': 'Prezado(a) {Nome},\n\nSua solicitação foi aprovada...',
                 'Pagamento': 'Prezado(a) {Nome},\n\nSeu pagamento foi efetuado...'
@@ -131,7 +126,7 @@ class App:
         self.main_frame = tb.Frame(self.root)
         self.main_frame.pack(fill=BOTH, expand=True)
 
-        # ----------- FRAME ESQUERDO -----------
+        # Frame lateral
         self.left_frame = tb.Frame(self.main_frame, width=200)
         self.left_frame.pack(side=LEFT, fill=Y)
 
@@ -142,6 +137,7 @@ class App:
         )
         title_label.pack(pady=20, padx=10)
 
+        # Botões do menu lateral
         self.home_button = tb.Button(
             self.left_frame,
             text="🏠",
@@ -177,13 +173,17 @@ class App:
         bottom_buttons_frame = tb.Frame(self.left_frame)
         bottom_buttons_frame.pack(side=BOTTOM, fill=X, pady=10)
 
+        # Botão de configurações
         self.settings_button = tb.Button(
             self.left_frame,
-            text='⚙',
+            text='⚙ Configurações',
             bootstyle=SECONDARY,
             command=self.open_settings
         )
         self.settings_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
+        # A1..A4 sem acesso a config
+        if self.user_role in ["A1", "A2", "A3", "A4"]:
+            self.settings_button.pack_forget()
 
         self.search_button = tb.Button(
             bottom_buttons_frame,
@@ -206,6 +206,8 @@ class App:
             command=self.show_statistics
         )
         self.statistics_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
+        if self.user_role == "A1":
+            self.statistics_button.pack_forget()
 
         self.view_all_button = tb.Button(
             bottom_buttons_frame,
@@ -215,13 +217,13 @@ class App:
         )
         self.view_all_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
 
-        # ----------- FRAME INFERIOR -----------
+        # Frame inferior (rodapé)
         bottom_frame = tb.Frame(self.root)
         bottom_frame.pack(side=BOTTOM, fill=X)
 
         status_label = tb.Label(
             bottom_frame,
-            text=f"Você está conectado como {self.user_name}",
+            text=f"Você está conectado como {self.user_name} (Cargo: {self.user_role})",
             font=("Helvetica", 10)
         )
         status_label.pack(side=LEFT, padx=10, pady=10)
@@ -234,36 +236,17 @@ class App:
         )
         logout_button.pack(side=RIGHT, padx=10, pady=10)
 
-        # ----------- FRAME CONTEÚDO PRINCIPAL -----------
+        # Frame para o conteúdo principal (home, detalhes, etc.)
         self.content_frame = tb.Frame(self.main_frame)
         self.content_frame.pack(side=LEFT, fill=BOTH, expand=True)
 
-        # Tela de boas-vindas
+        # Frame de boas-vindas
         self.welcome_frame = tb.Frame(self.content_frame)
         self.welcome_frame.pack(fill=BOTH, expand=True)
 
         self.setup_welcome_screen()
 
-        # Frame da tabela
-        self.table_frame = tb.Frame(self.content_frame)
-        self.table_title_label = tb.Label(
-            self.table_frame,
-            text="Controle de Orçamento IG - PPG UNICAMP",
-            font=("Helvetica", 16, "bold")
-        )
-        self.table_title_label.pack(pady=10)
-
-        self.tree = tb.Treeview(self.table_frame, show="headings")
-        self.tree.pack(fill=BOTH, expand=True)
-
-        scrollbar = tb.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscroll=scrollbar.set)
-        scrollbar.pack(side=RIGHT, fill=Y)
-
-        self.tree.bind("<Double-1>", self.on_treeview_click)
-
-        self.tree.tag_configure('oddrow', background='#f0f8ff')
-        self.tree.tag_configure('evenrow', background='#ffffff')
+        # O table_frame será criado SÓ quando chamarmos select_view() ou perform_search()
 
         self.back_button = tb.Button(
             self.content_frame,
@@ -272,13 +255,7 @@ class App:
             command=self.back_to_main_view
         )
 
-        # ========== LÓGICA DE VISIBILIDADE POR CARGO =============
-        if self.user_role == "A1":
-            # A1 - Visualizador -> sem config
-            self.settings_button.pack_forget()
-
     def logout(self):
-        """Encerra completamente o programa."""
         sys.exit(0)
 
     def setup_welcome_screen(self):
@@ -322,29 +299,35 @@ class App:
         )
         summary_label.pack(pady=20)
 
-    # -------------- Navegação --------------
     def select_view(self, view_name):
-
         self.current_view = view_name
         self.search_var.set('')
 
+        # Oculta welcome frame se estiver visível
         if self.welcome_frame.winfo_ismapped():
             self.welcome_frame.pack_forget()
+
+        # Se existe frame de estatísticas, oculta
         if self.statistics_frame and self.statistics_frame.winfo_ismapped():
             self.statistics_frame.pack_forget()
+
+        # Se existe frame de detalhes, destrói
         if self.details_frame and self.details_frame.winfo_ismapped():
             self.details_frame.pack_forget()
             self.details_frame.destroy()
             self.details_frame = None
 
-        if not self.table_frame.winfo_ismapped():
-            self.table_frame.pack(fill=BOTH, expand=True)
+        # Se existia table_frame, destrói
+        if self.table_frame:
+            self.table_frame.pack_forget()
+            self.table_frame.destroy()
+            self.table_frame = None
 
+        # Cria ou recria a tabela e exibe
         self.update_table()
         self.update_selected_button(view_name)
 
     def perform_search(self):
-
         self.current_view = "Search"
 
         if self.welcome_frame.winfo_ismapped():
@@ -355,6 +338,11 @@ class App:
             self.details_frame.pack_forget()
             self.details_frame.destroy()
             self.details_frame = None
+
+        if self.table_frame:
+            self.table_frame.pack_forget()
+            self.table_frame.destroy()
+            self.table_frame = None
 
         self.update_table()
 
@@ -379,10 +367,13 @@ class App:
             self.selected_button.configure(bootstyle=PRIMARY)
 
     def go_to_home(self):
-
-        if self.table_frame.winfo_ismapped():
+        # Se table_frame existe, destruir
+        if self.table_frame:
             self.table_frame.pack_forget()
-        if self.details_frame and self.details_frame.winfo_ismapped():
+            self.table_frame.destroy()
+            self.table_frame = None
+        # Se details_frame existe, destruir
+        if self.details_frame:
             self.details_frame.pack_forget()
             self.details_frame.destroy()
             self.details_frame = None
@@ -401,33 +392,51 @@ class App:
             self.details_frame.destroy()
             self.details_frame = None
 
-        self.back_button.pack_forget()
-        self.table_frame.pack(fill=BOTH, expand=True)
+        if self.back_button.winfo_ismapped():
+            self.back_button.pack_forget()
 
-        # Forçar re-layout
-        self.update_table()
-        self.root.update_idletasks()
+        # Se table_frame existir, destruí-lo (caso queira recriar)
+        if self.table_frame:
+            self.table_frame.pack_forget()
+            self.table_frame.destroy()
+            self.table_frame = None
 
-    # -------------- Tabela --------------
+        # Volta para a home
+        self.go_to_home()
+
     def update_table(self):
+        """
+        Cria o table_frame caso não exista, e exibe a TreeView com base no self.current_view.
+        """
+        self.table_frame = tb.Frame(self.content_frame)
+        self.table_frame.pack(fill=BOTH, expand=True, padx=20)
 
-        if self.details_frame:
-            if self.details_frame.winfo_ismapped():
-                self.details_frame.pack_forget()
-            self.details_frame.destroy()
-            self.details_frame = None
+        table_title_label = tb.Label(
+            self.table_frame,
+            text="Controle de Orçamento IG - PPG UNICAMP",
+            font=("Helvetica", 16, "bold")
+        )
+        table_title_label.pack(pady=10)
 
-        if self.statistics_frame and self.statistics_frame.winfo_ismapped():
-            self.statistics_frame.pack_forget()
+        # Estilo para rowheight 20% maior e fonte +1
+        style = tb.Style()
+        default_row_height = style.lookup("Treeview", "rowheight", default=20)
+        new_row_height = 40
+        style.configure("Treeview", rowheight=new_row_height, font=("TkDefaultFont", 11))
 
-        self.table_frame.pack(fill="both", expand=True)
+        self.tree = tb.Treeview(self.table_frame, show="headings", style="Treeview")
+        self.tree.pack(fill=BOTH, expand=True)
 
-        # Limpar tree
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+        scrollbar = tb.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscroll=scrollbar.set)
+        scrollbar.pack(side=RIGHT, fill=Y)
 
-        # Lógica de colunas (custom_views ou fallback)
-        if hasattr(self, 'custom_views') and self.current_view in self.custom_views:
+        self.tree.bind("<Double-1>", self.on_treeview_click)
+        self.tree.tag_configure('oddrow', background='#f0f8ff')
+        self.tree.tag_configure('evenrow', background='#ffffff')
+
+        # Determinar colunas a exibir
+        if self.current_view in self.custom_views:
             self.columns_to_display = self.custom_views[self.current_view]
         else:
             if self.current_view == "Aguardando aprovação":
@@ -445,19 +454,20 @@ class App:
                 ]
             elif self.current_view == "Pendências":
                 self.columns_to_display = [
-                    'Carimbo de data/hora_str','Ultima Atualizacao', 'Status', 'Nome completo (sem abreviações):',
-                     'Valor', 'Curso:', 'Orientador'
+                    'Carimbo de data/hora_str','Ultima Atualizacao', 'UltimoUsuario', 'Status', 'Nome completo (sem abreviações):',
+                    'Valor', 'Curso:', 'Orientador'
                 ]
             elif self.current_view == "Pronto para pagamento":
                 self.columns_to_display = [
-                    'Carimbo de data/hora_str', 'Ultima Atualizacao', 'Nome completo (sem abreviações):',
+                    'Carimbo de data/hora_str', 'Ultima Atualizacao', 'UltimoUsuario', 'Nome completo (sem abreviações):',
                     'Valor', 'Telefone de contato:',
                     'Dados bancários (banco, agência e conta) '
                 ]
             else:
+                # "Todos" ou "Search"
                 self.columns_to_display = [
                     'Carimbo de data/hora_str', 'Nome completo (sem abreviações):',
-                    'Ultima Atualizacao', 'Valor', 'Status'
+                    'Ultima Atualizacao','UltimoUsuario', 'Valor', 'Status'
                 ]
 
         self.tree["columns"] = self.columns_to_display
@@ -470,6 +480,7 @@ class App:
             )
             self.tree.column(col, anchor="center", width=150)
 
+        # Recarregar data
         self.data = self.sheets_handler.load_data()
         self.data['Carimbo de data/hora'] = pd.to_datetime(
             self.data['Carimbo de data/hora'],
@@ -478,6 +489,7 @@ class App:
         )
         self.data['Carimbo de data/hora_str'] = self.data['Carimbo de data/hora'].dt.strftime('%d/%m/%Y')
 
+        # Filtrar
         if self.current_view == "Search":
             data_filtered = self.data.copy()
         elif self.current_view == "Pendências":
@@ -523,11 +535,6 @@ class App:
                 values=values, tags=(tag, f'status_tag_{idx}')
             )
 
-        if self.back_button.winfo_ismapped():
-            self.back_button.pack_forget()
-
-        self.table_title_label.config(text="Controle de Orçamento IG - PPG UNICAMP")
-
     def treeview_sort_column(self, tv, col, reverse):
         data_list = [(tv.set(k, col), k) for k in tv.get_children('')]
         try:
@@ -542,9 +549,9 @@ class App:
         tv.heading(col, command=lambda: self.treeview_sort_column(tv, col, not reverse))
 
     def on_treeview_click(self, event):
-        if self.user_role in ["A1", "A5"]:
-            # Cargo A1 ou A5 não acessa detalhes
-            messagebox.showinfo("Aviso", "Você não tem acesso aos detalhes.")
+        # A1 não acessa detalhes
+        if self.user_role == "A1":
+            messagebox.showinfo("Aviso", "Você (A1) não tem acesso aos detalhes.")
             return
 
         selected_item = self.tree.selection()
@@ -553,16 +560,11 @@ class App:
             self.current_row_data = self.sheets_handler.load_data().loc[row_index]
             self.details_manager.show_details_in_place(self.current_row_data)
 
-    # -------------- Estatísticas --------------
     def show_statistics(self):
-        if self.user_role in ["A1"]:
-            messagebox.showinfo("Aviso", "Você não tem acesso às estatísticas.")
-            return
         self.statistics_manager.show_statistics()
 
-    # -------------- Configurações --------------
     def open_settings(self):
-        if self.user_role == "A1":
-            messagebox.showinfo("Aviso", "Cargo A1 não tem acesso às configurações.")
+        if self.user_role != "A5":
+            messagebox.showinfo("Aviso", "Acesso restrito ao admin (A5).")
             return
         self.settings_manager.open_settings()

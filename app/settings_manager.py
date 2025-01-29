@@ -1,5 +1,3 @@
-# settings_manager.py
-
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 import tkinter as tk
@@ -8,20 +6,6 @@ import json
 import os
 
 BTN_WIDTH = 35
-
-# Exemplo de arquivo para armazenar "users_db.json"
-# contendo algo como:
-# {
-#   "visual1": {"password": "123", "role": "A1", "email": "visual1@exemplo.com"},
-#   ...
-# }
-
-# Exemplo de arquivo "notification_cargos.json" com algo como:
-# {
-#   "Pendencias": "A2",
-#   "ProntoPagamento": "A4",
-#   "Aprovado": "A3"
-# }
 
 USERS_DB_FILE = "users_db.json"
 NOTIFICATION_CARGOS_FILE = "notification_cargos.json"
@@ -58,14 +42,10 @@ class SettingsManager:
         self.settings_window = None
         self.mask_window = None
 
-        # Carregamos DB de usuários
         self.users_db = load_users_db()
-
-        # Carregamos config de notificação
         self.notification_cargos = load_notification_cargos()
 
     def open_settings(self):
-        """Abre (ou foca) a janela de configurações."""
         if self.settings_window and self.settings_window.winfo_exists():
             self.settings_window.lift()
             return
@@ -80,19 +60,17 @@ class SettingsManager:
         main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
 
-        # Coluna Esquerda
         col1 = tb.Frame(main_frame)
         col1.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         col1.columnconfigure(0, weight=1)
 
         instructions_label = tb.Label(
             col1,
-            text="Configurações",
+            text="Configurações (Apenas A5)",
             font=("Helvetica", 12, "bold")
         )
         instructions_label.grid(row=0, column=0, sticky='w', pady=5)
 
-        # Botão "Títulos de Informações"
         mask_btn = tb.Button(
             col1,
             text="Títulos de Informações",
@@ -102,7 +80,6 @@ class SettingsManager:
         )
         mask_btn.grid(row=1, column=0, sticky='w', pady=10)
 
-        # Se user_role == "A5", exibir "Cadastrar/Remover Usuários"
         if self.app.user_role == "A5":
             user_btn = tb.Button(
                 col1,
@@ -122,13 +99,9 @@ class SettingsManager:
             )
             notif_btn.grid(row=3, column=0, sticky='w', pady=10)
 
-            row_start_col = 4
-        else:
-            row_start_col = 2
-
+        row_start_col = 4
         columns_label = tb.Label(col1, text="Definição de Colunas", font=("Helvetica", 10, "bold"))
         columns_label.grid(row=row_start_col, column=0, sticky='w', pady=(15,5))
-
         row_start_col += 1
 
         col_txt = (
@@ -137,13 +110,14 @@ class SettingsManager:
         )
         col_info_label = tb.Label(col1, text=col_txt, font=("Helvetica", 9), foreground="gray", wraplength=300)
         col_info_label.grid(row=row_start_col, column=0, sticky='w', pady=5)
+        row_start_col += 1
 
         views = [
             ("Aguardando aprovação", "Aguardando aprovação"),
             ("Pendências", "Pendências"),
             ("Pronto para pagamento", "Pronto para pagamento")
         ]
-        row_index = row_start_col + 1
+        row_index = row_start_col
         for label_text, view_name in views:
             btn = tb.Button(
                 col1,
@@ -157,7 +131,6 @@ class SettingsManager:
 
         col1.rowconfigure(row_index, weight=1)
 
-        # Coluna Direita
         col2 = tb.Frame(main_frame)
         col2.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
         col2.columnconfigure(0, weight=1)
@@ -186,15 +159,11 @@ class SettingsManager:
 
         col2.rowconfigure(row_index2, weight=1)
 
-    # --------------------------------------------
-    # Janela de gerenciamento de usuários (Admin)
-    # --------------------------------------------
     def user_management(self):
         um_window = tb.Toplevel(self.app.root)
         um_window.title("Gerenciar Usuários")
         um_window.geometry("500x400")
 
-        # Carregar a base atual
         db_users = load_users_db()
 
         tk.Label(um_window, text="Usuários Cadastrados:", font=("Helvetica", 12, "bold")).pack(pady=5)
@@ -202,7 +171,6 @@ class SettingsManager:
         listbox = tk.Listbox(um_window)
         listbox.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Preenche listbox
         def refresh_users():
             listbox.delete(0, 'end')
             for u in db_users.keys():
@@ -212,12 +180,10 @@ class SettingsManager:
 
         refresh_users()
 
-        # Frame de botões
         btn_frame = tk.Frame(um_window)
         btn_frame.pack(pady=5)
 
         def add_user():
-            # janela p/ inserir user, password, role, email
             addw = tb.Toplevel(um_window)
             addw.title("Adicionar Usuário")
             addw.geometry("300x250")
@@ -266,7 +232,6 @@ class SettingsManager:
                 return
             idx = sel[0]
             line = listbox.get(idx)
-            # line ex: "admin | Cargo: A5 | Email: admin@exemplo.com"
             user_name = line.split("|")[0].strip()
             if user_name in db_users:
                 confirm = messagebox.askyesno("Confirmar", f"Remover usuário '{user_name}'?")
@@ -281,33 +246,29 @@ class SettingsManager:
         rem_btn = tb.Button(btn_frame, text="Remover Usuário", bootstyle=DANGER, command=remove_user)
         rem_btn.pack(side=LEFT, padx=5)
 
-    # --------------------------------------------
-    # Configurar cargo de notificação
-    # --------------------------------------------
     def setup_notification_cargos(self):
         cfg_window = tb.Toplevel(self.app.root)
         cfg_window.title("Configurar Cargo de Notificação")
         cfg_window.geometry("400x300")
 
-        lbl = tb.Label(cfg_window, text="Defina qual cargo (A1..A5) receberá notificação para cada evento:", font=("Helvetica", 10, "bold"))
+        lbl = tb.Label(cfg_window, text="Defina qual cargo receberá notificação para cada evento:", font=("Helvetica", 10, "bold"))
         lbl.pack(pady=5)
 
-        # Carregar config
         notif_cfg = load_notification_cargos()
 
         frame_events = tb.Frame(cfg_window)
         frame_events.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Exemplo de "eventos" ou "status" => 'AguardandoAprovacao', 'Pendencias', ...
         events = ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Autorizado"]
         var_dict = {}
 
         row_idx = 0
         for ev in events:
             tb.Label(frame_events, text=ev).grid(row=row_idx, column=0, sticky='w', padx=5, pady=5)
-            var = tk.StringVar(value=notif_cfg.get(ev, "A1"))
+            import tkinter as tki
+            var = tki.StringVar(value=notif_cfg.get(ev, "A1"))
             var_dict[ev] = var
-            entry = tk.Entry(frame_events, textvariable=var, width=5)
+            entry = tki.Entry(frame_events, textvariable=var, width=5)
             entry.grid(row=row_idx, column=1, sticky='w', padx=5, pady=5)
             row_idx += 1
 
@@ -322,9 +283,6 @@ class SettingsManager:
         tb.Button(cfg_window, text="Salvar", bootstyle=SUCCESS, command=save_notif).pack(pady=5)
 
     def open_column_selector(self, view_name):
-        """
-        Abre janela para escolher/ordenar colunas usando 2 Listbox.
-        """
         sel_window = tb.Toplevel(self.app.root)
         sel_window.title(f"Colunas - {view_name}")
         sel_window.geometry("700x400")
@@ -351,7 +309,8 @@ class SettingsManager:
         lbl_left = tb.Label(left_frame, text="Disponíveis", font=("Helvetica", 10, "bold"))
         lbl_left.pack(pady=5)
 
-        list_avail = tk.Listbox(left_frame, selectmode='extended')
+        import tkinter as tki
+        list_avail = tki.Listbox(left_frame, selectmode='extended')
         list_avail.pack(fill="both", expand=True)
 
         center_frame = tb.Frame(container)
@@ -363,7 +322,7 @@ class SettingsManager:
         lbl_right = tb.Label(right_frame, text="Selecionadas (ordem)", font=("Helvetica", 10, "bold"))
         lbl_right.pack(pady=5)
 
-        list_select = tk.Listbox(right_frame, selectmode='extended')
+        list_select = tki.Listbox(right_frame, selectmode='extended')
         list_select.pack(fill="both", expand=True)
 
         def load_lists():
@@ -474,20 +433,17 @@ class SettingsManager:
         scrollbar.pack(side="right", fill="y")
 
         self.entry_vars = {}
-        # Mapa de máscaras
-        if hasattr(self.app.details_manager, 'FORM_FIELD_MAPPING'):
-            field_map = self.app.details_manager.FORM_FIELD_MAPPING
-        else:
-            field_map = self.app.details_manager.__dict__.get('FORM_FIELD_MAPPING', {})
+        field_map = self.app.details_manager.FORM_FIELD_MAPPING
 
         row_idx = 0
         for key, val in field_map.items():
             tk_label = tb.Label(scroll_frame, text=key, width=40, anchor='w')
             tk_label.grid(row=row_idx, column=0, padx=5, pady=5, sticky='w')
 
-            var = tk.StringVar(value=val)
+            import tkinter as tki
+            var = tki.StringVar(value=val)
             self.entry_vars[key] = var
-            tk_entry = tb.Entry(scroll_frame, textvariable=var, width=40)
+            tk_entry = tki.Entry(scroll_frame, textvariable=var, width=40)
             tk_entry.grid(row=row_idx, column=1, padx=5, pady=5, sticky='w')
 
             row_idx += 1

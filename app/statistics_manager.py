@@ -17,18 +17,13 @@ try:
 except ImportError:
     HAS_MPLCURSORS = False
 
-# Ajuste conforme seu login.py ou outro local
 from login import BASE_DIR
 
 ASSETS_PATH = BASE_DIR / "images" / "assets" / "graphview"
 
 def relative_to_assets(path: str) -> Path:
-    final_path = ASSETS_PATH / Path(path)
-    return final_path
+    return ASSETS_PATH / Path(path)
 
-# ---------------------------------------------------------
-# Botão arredondado em Canvas
-# ---------------------------------------------------------
 class RoundedButton(tk.Canvas):
     def __init__(
         self, parent, width=100, height=40, radius=10,
@@ -60,7 +55,6 @@ class RoundedButton(tk.Canvas):
         x1, y1 = bw, bw
         x2, y2 = w - bw, h - bw
 
-        # Cantos
         self.create_arc(x1, y1, x1+2*r, y1+2*r, start=90, extent=90,
                         fill=self.bg_color, outline=self.bg_color)
         self.create_arc(x2-2*r, y1, x2, y1+2*r, start=0, extent=90,
@@ -70,13 +64,11 @@ class RoundedButton(tk.Canvas):
         self.create_arc(x2-2*r, y2-2*r, x2, y2, start=270, extent=90,
                         fill=self.bg_color, outline=self.bg_color)
 
-        # Retângulos intermediários
         self.create_rectangle(x1+r, y1, x2-r, y2,
                               fill=self.bg_color, outline=self.bg_color)
         self.create_rectangle(x1, y1+r, x2, y2-r,
                               fill=self.bg_color, outline=self.bg_color)
 
-        # Contorno
         if bw > 0:
             self.create_arc(x1, y1, x1+2*r, y1+2*r, start=90, extent=90,
                             style="arc", outline=self.border_color, width=bw)
@@ -92,22 +84,20 @@ class RoundedButton(tk.Canvas):
             self.create_line(x1, y1+r, x1, y2-r, fill=self.border_color, width=bw)
             self.create_line(x2, y1+r, x2, y2-r, fill=self.border_color, width=bw)
 
-        # Texto
         self.create_text(w//2, h//2, text=self.text_str,
                          fill=self.fg_color, font=self.font)
 
     def on_click(self, event):
         if self.command:
             self.command()
-
+            
     def config_colors(self, bg_color=None, fg_color=None):
         if bg_color is not None:
             self.bg_color = bg_color
         if fg_color is not None:
             self.fg_color = fg_color
         self.draw_button()
-
-# ---------------------------------------------------------
+        
 class StatisticsManager:
     def __init__(self, app):
         self.app = app
@@ -124,14 +114,13 @@ class StatisticsManager:
         self.info_labels = []
 
         self.custom_month_start = None
-        self.custom_year_start  = None
-        self.custom_month_end   = None
-        self.custom_year_end    = None
+        self.custom_year_start = None
+        self.custom_month_end = None
+        self.custom_year_end = None
 
         self.current_figure = None
         self.period_label = None
 
-        # Motivos fixos e ordenados:
         self.fixed_motives_order = [
             "Outros",
             "Visita técnica",
@@ -140,6 +129,7 @@ class StatisticsManager:
         ]
 
     def show_statistics(self):
+        # Se fosse preciso checar cargo, poderíamos checar aqui. Mas já escondemos p/ A1
         if self.stats_window and self.stats_window.winfo_exists():
             self.stats_window.lift()
             return
@@ -159,11 +149,9 @@ class StatisticsManager:
                                      highlightthickness=0)
         self.main_canvas.pack(fill="both", expand=True)
 
-        # Frame lateral
         self.left_frame = tk.Frame(self.main_canvas, bg="#2C3E50", width=250)
         self.left_frame.place(x=0, y=0, relheight=1.0)
 
-        # Frame de gráficos
         self.graph_frame = tk.Frame(self.main_canvas, bg="#D9D9D9")
         self.graph_frame.place(x=250, y=110, width=720, height=610)
 
