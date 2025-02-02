@@ -5,7 +5,6 @@ from ttkbootstrap.constants import *
 from login import show_login
 from google_sheets_handler import GoogleSheetsHandler
 from email_sender import EmailSender
-from constants import EMAIL_PASSWORD_ENV
 from app.main_app import App
 
 # Logger
@@ -26,14 +25,9 @@ def main():
     credentials_file = "credentials.json"
     sheet_url = "https://docs.google.com/spreadsheets/d/1sNwhkq0nCuTMRhs2HmahV88uIn9KiXY1ex0vlOwC0O8/edit?usp=sharing"  # Ajuste p/ sua planilha
 
-    # Ajuste a variável de ambiente com a senha do email (pseudo-hash, exemplo simples)
-    raw_password = "oukz okul wlzp liwb"
-    #hashed_pass = logger_app.simple_hash(raw_password)  # Exemplo "melhoria" item #5
-    #os.environ[EMAIL_PASSWORD_ENV] = hashed_pass
-
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
-    sender_email = "exemplo@gmail.com"
+    sender_email = "financas.ig.nubia@gmail.com"
 
     sheets_handler = GoogleSheetsHandler(credentials_file, sheet_url)
     email_sender = EmailSender(smtp_server, smtp_port, sender_email)

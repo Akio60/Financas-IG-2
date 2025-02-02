@@ -299,7 +299,7 @@ class SettingsManager:
             'Local de realização do evento', 'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
             'Telefone de contato:', 'Carimbo de data/hora_str', 'Status', 'Ultima Atualizacao', 'Valor',
             'E-mail DAC:', 'Endereço completo (logradouro, número, bairro, cidade e estado)', 'CPF:',
-            'RG/RNE:', 'Dados bancários (banco, agência e conta) '
+            'RG/RNE:', 'Dados bancários (banco, agência e conta) ', 'Valor solicitado. Somente valor, sem pontos e vírgula','UltimoUsuario'
         ]
         current_cols = self.app.custom_views.get(view_name, [])
 

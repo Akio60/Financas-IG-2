@@ -72,6 +72,7 @@ class App:
         # Colunas customizadas
         self.custom_views = {
             "Aguardando aprovação": [
+                'Carimbo de data/hora_str',
                 'Endereço de e-mail',
                 'Nome completo (sem abreviações):',
                 'Curso:',

@@ -28,7 +28,8 @@ FORM_FIELD_MAPPING = {
     'Período de realização da atividade. Indique as datas (dd/mm/aaaa)': 'Período da Atividade',
     'Descrever detalhadamente os itens a serem financiados. Por ex: inscrição em evento, diárias ...':
         'Itens a Financiar',
-    'Valor': 'Valor Solicitado (R$)',
+    'Valor solicitado. Somente valor, sem pontos e vírgula' : 'Valor Solicitado (R$)',
+    'Valor': 'Valor liberado para a solicitação',
     'Dados bancários (banco, agência e conta) ': 'Dados Bancários'
 }
 
@@ -93,6 +94,7 @@ class DetailsManager:
                 'Descrever detalhadamente os itens a serem financiados. Por ex: inscrição em evento, diárias ...',
             ],
             "Informações Financeiras": [
+                'Valor solicitado. Somente valor, sem pontos e vírgula'
                 'Valor',
                 'Dados bancários (banco, agência e conta) ',
             ],
@@ -371,7 +373,8 @@ class DetailsManager:
                 'Nome do evento ou, se atividade de campo, motivos da realização\n* caso não se trate de evento ou viagem de campo, preencher N/A',
                 'Local de realização do evento',
                 'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
-                'Descrever detalhadamente os itens a serem financiados...'
+                'Descrever detalhadamente os itens a serem financiados...',
+                'Valor solicitado. Somente valor, sem pontos e vírgula'
             ],
             "Informações Financeiras": [
                 'Valor',

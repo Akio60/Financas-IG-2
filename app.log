@@ -14,3 +14,17 @@
 2025-01-28 22:49:19,692 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
 2025-01-28 22:50:30,246 [INFO] update_status: A3 mudou status para Pago, timestamp=28/01/2025 16:36:43
 2025-01-28 22:50:33,551 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-01-28 23:10:39,384 [INFO] update_status: A3 mudou status para Autorizado, timestamp=30/01/2025 16:36:43
+2025-01-28 23:10:40,265 [INFO] update_value: A3 alterou valor para 123123, timestamp=30/01/2025 16:36:43
+2025-01-28 23:10:41,730 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-01-28 23:10:41,927 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-02-02 14:58:25,345 [INFO] update_status: A3 mudou status para Pago, timestamp=18/12/2023 20:04:39
+2025-02-02 14:58:28,541 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-02-02 16:42:18,627 [INFO] update_status: A3 mudou status para Autorizado, timestamp=19/11/2023 20:04:39
+2025-02-02 16:42:19,378 [INFO] update_value: A3 alterou valor para 300, timestamp=19/11/2023 20:04:39
+2025-02-02 16:42:21,596 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-02-02 16:42:21,669 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-02-02 16:42:50,587 [INFO] update_status: A3 mudou status para Autorizado, timestamp=26/01/2025 16:36:43
+2025-02-02 16:42:51,349 [INFO] update_value: A3 alterou valor para 2000, timestamp=26/01/2025 16:36:43
+2025-02-02 16:42:52,798 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'
+2025-02-02 16:42:53,397 [ERROR] Erro ao enviar e-mail: 'NoneType' object has no attribute 'encode'

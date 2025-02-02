@@ -4,7 +4,6 @@ import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from tkinter import messagebox
-
 from constants import EMAIL_PASSWORD_ENV
 import logger_app
 
