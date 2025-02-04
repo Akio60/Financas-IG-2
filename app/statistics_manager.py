@@ -824,24 +824,25 @@ class StatisticsManager:
                     ax.set_xticklabels([str(p) for p in pivot.index], rotation=45, ha='right')
                     ax.set_title("Acumulado (Personalizado)")
     
-            else:
-                df = df.sort_values(by=["Ultima Atualizacao"])
-                df['Acumulado'] = df['Valor'].cumsum()
-    
-                times = df['Ultima Atualizacao']
-                vals = df['Acumulado']
-    
-                if len(times) == 0:
-                    ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
+            else:  # caso total
+                if "YearSem" not in df.columns:
+                    ax.text(0.5, 0.5, "Sem col YearSem", ha='center', va='center')
                     ax.axis('off')
                 else:
-                    ax.plot(times, vals, color="navy", marker="o", linewidth=2)
-                    max_val = vals.iloc[-1]
-                    max_time = times.iloc[-1]
-                    ax.text(max_time, max_val, f"{max_val:.2f}",
-                            ha='left', va='bottom', color='black', fontsize=9)
-                    ax.set_title("Valor Acumulado (Pagos)")
-    
+                    sorted_idx = sorted(df["YearSem"].unique(), key=lambda t: (t[0], t[1]))
+                    group = df.groupby("YearSem")["Valor"].sum().reindex(sorted_idx, fill_value=0)
+                    cumvals = group.cumsum()
+                    x = np.arange(len(sorted_idx))
+                    ax.plot(x, cumvals, color="navy", marker="o", linewidth=2)
+                    for i, val in enumerate(cumvals):
+                        if val > 0:
+                            ax.text(x[i], val, f"{val:.2f}",
+                                    ha='left', va='bottom', color='black', fontsize=9)
+                    labels = [f"{y}-S{s}" for (y, s) in sorted_idx]
+                    ax.set_xticks(x)
+                    ax.set_xticklabels(labels, rotation=45, ha='right')
+                    ax.set_title("Acumulado (Total)")
+
         canvas = FigureCanvasTkAgg(self.current_figure, master=self.graph_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
