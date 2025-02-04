@@ -422,13 +422,18 @@ class StatisticsManager:
                 days_in_end = calendar.monthrange(ye, me)[1]
                 end_date = pd.Timestamp(ye, me, days_in_end, 23, 59, 59)
                 df = df[(df['Ultima Atualizacao'] >= start_date) & (df['Ultima Atualizacao'] <= end_date)].copy()
+                
+                # Define período com base na granularidade selecionada
                 granularity = self.custom_granularity.get()
                 if granularity == "mensal":
-                    df["Periodo"] = df["Ultima Atualizacao"].dt.to_period("M")
+                    df["Periodo"] = df["Ultima Atualizacao"].dt.strftime("%Y-%m")
+                    df["PeriodoLabel"] = df["Ultima Atualizacao"].dt.strftime("%b/%y")
                 elif granularity == "semestral":
-                    df["Periodo"] = df["Ultima Atualizacao"].dt.to_period("6M")
-                elif granularity == "anual":
-                    df["Periodo"] = df["Ultima Atualizacao"].dt.to_period("Y")
+                    df["Periodo"] = df["Ultima Atualizacao"].apply(lambda x: f"{x.year}-S{1 if x.month <= 6 else 2}")
+                    df["PeriodoLabel"] = df["Periodo"]
+                else:  # anual
+                    df["Periodo"] = df["Ultima Atualizacao"].dt.strftime("%Y")
+                    df["PeriodoLabel"] = df["Periodo"]
             except:
                 messagebox.showwarning("Aviso", "Datas inválidas, exibindo tudo.")
             return df
@@ -614,8 +619,8 @@ class StatisticsManager:
                         ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
 
             elif self.current_period == "custom":
-                if "Periodo" not in df.columns:
-                    ax.text(0.5, 0.5, "Sem col Periodo", ha='center', va='center')
+                if "Periodo" not in df.columns or "PeriodoLabel" not in df.columns:
+                    ax.text(0.5, 0.5, "Sem col Periodo/PeriodoLabel", ha='center', va='center')
                     ax.axis('off')
                 else:
                     pivot = df.groupby(["Periodo", "Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
@@ -623,25 +628,34 @@ class StatisticsManager:
                         ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
                         ax.axis('off')
                     else:
-                        periods = pivot.index
-                        x = np.arange(len(periods))
+                        sorted_idx = sorted(pivot.index)
+                        pivot = pivot.reindex(sorted_idx)
+                        x = np.arange(len(pivot.index))
                         bottom = np.zeros(len(x))
                         motives = pivot.columns
                         color_map = cm.get_cmap('Blues', len(motives) + 1)
+                        
                         for i, motive in enumerate(motives[::-1]):
                             vals = pivot[motive].values
                             c = color_map(float(i + 1) / len(motives))
                             ax.bar(x, vals, bottom=bottom, color=c, label=motive)
                             bottom += vals
+                            
                         for i, val in enumerate(bottom):
                             if val > 0:
                                 ax.text(i, val * 1.01, f"{val:.2f}",
                                         ha='center', va='bottom', fontsize=8, color='black')
+                        
+                        # Usar PeriodoLabel para exibição
+                        periodo_labels = [df[df["Periodo"] == p]["PeriodoLabel"].iloc[0] for p in sorted_idx]
                         ax.set_xticks(x)
-                        ax.set_xticklabels([str(p) for p in periods], rotation=45, ha='right')
+                        ax.set_xticklabels(periodo_labels, rotation=45, ha='right')
                         ax.legend(fontsize=8)
                         max_val = bottom.max()
                         ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
+                        
+                        granularity = self.custom_granularity.get()
+                        ax.set_title(f"Personalizado ({granularity})")
 
             else:
                 if "YearSem" not in df.columns:
@@ -808,21 +822,28 @@ class StatisticsManager:
                     ax.set_title("Acumulado (Ano)")
     
             elif self.current_period == "custom":
-                if "Periodo" not in df.columns:
-                    ax.text(0.5, 0.5, "Sem col Periodo", ha='center', va='center')
+                if "Periodo" not in df.columns or "PeriodoLabel" not in df.columns:
+                    ax.text(0.5, 0.5, "Sem col Periodo/PeriodoLabel", ha='center', va='center')
                     ax.axis('off')
                 else:
-                    pivot = df.groupby("Periodo")["Valor"].sum().reindex(df["Periodo"].unique(), fill_value=0)
-                    cumvals = pivot.cumsum()
-                    x = np.arange(len(pivot.index))
+                    sorted_idx = sorted(df["Periodo"].unique())
+                    group = df.groupby("Periodo")["Valor"].sum().reindex(sorted_idx, fill_value=0)
+                    cumvals = group.cumsum()
+                    x = np.arange(len(sorted_idx))
                     ax.plot(x, cumvals, color="navy", marker="o", linewidth=2)
+                    
                     for i, val in enumerate(cumvals):
                         if val > 0:
                             ax.text(x[i], val, f"{val:.2f}",
                                     ha='left', va='bottom', color='black', fontsize=9)
+                    
+                    # Usar PeriodoLabel para exibição
+                    periodo_labels = [df[df["Periodo"] == p]["PeriodoLabel"].iloc[0] for p in sorted_idx]
                     ax.set_xticks(x)
-                    ax.set_xticklabels([str(p) for p in pivot.index], rotation=45, ha='right')
-                    ax.set_title("Acumulado (Personalizado)")
+                    ax.set_xticklabels(periodo_labels, rotation=45, ha='right')
+                    
+                    granularity = self.custom_granularity.get()
+                    ax.set_title(f"Acumulado Personalizado ({granularity})")
     
             else:  # caso total
                 if "YearSem" not in df.columns:
