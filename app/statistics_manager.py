@@ -192,9 +192,23 @@ class StatisticsManager:
 
         info_frame = tk.Frame(self.left_frame, bg="#2C3E50")
         info_frame.place(x=20, y=330, width=200, height=250)
-        
+        info_keys = [
+            "Total Solicitações",
+            "Pendentes",
+            "Aguardando Pagto",
+            "Pagas",
+            "Valor Pago (R$)",
+            "Valor Liberado (R$)"
+        ]
         self.info_labels.clear()
-        # As info_labels serão preenchidas dinamicamente pelo update_info_box
+        for i, key in enumerate(info_keys):
+            lbl_k = tk.Label(info_frame, text=key, bg="#2C3E50", fg="#000",
+                             width=15, anchor="e")
+            lbl_k.grid(row=i, column=0, sticky="e", padx=5, pady=2)
+            lbl_v = tk.Label(info_frame, text="0", bg="#2C3E50", fg="#000",
+                             width=10, anchor="w")
+            lbl_v.grid(row=i, column=1, sticky="w", padx=5, pady=2)
+            self.info_labels.append((key, lbl_v))
 
         self.create_rounded_button(
             parent=self.left_frame,
@@ -315,9 +329,9 @@ class StatisticsManager:
         cw, ch = 300, 220
         custom_win.geometry(f"{cw}x{ch}")
         self._center_window(custom_win, cw, ch)
-        custom_win.config(bg="#2C3E50")  # Alterado para o tom padrão
+        custom_win.config(bg="#ECF0F1")
 
-        tk.Label(custom_win, text="Mês/Ano INÍCIO:", bg="#2C3E50", fg="white").pack(pady=5)
+        tk.Label(custom_win, text="Mês/Ano INÍCIO:", bg="#ECF0F1").pack(pady=5)
         months = [str(i).zfill(2) for i in range(1, 13)]
         years = [str(y) for y in range(2020, 2035)]
 
@@ -327,25 +341,25 @@ class StatisticsManager:
         self.custom_month_end = tk.StringVar(value=str(today.month).zfill(2))
         self.custom_year_end = tk.StringVar(value=str(today.year))
 
-        frame_start = tk.Frame(custom_win, bg="#2C3E50")
+        frame_start = tk.Frame(custom_win, bg="#ECF0F1")
         frame_start.pack()
         om1 = tk.OptionMenu(frame_start, self.custom_month_start, *months)
         om1.pack(side="left", padx=5)
         om2 = tk.OptionMenu(frame_start, self.custom_year_start, *years)
         om2.pack(side="left", padx=5)
 
-        tk.Label(custom_win, text="Mês/Ano FIM:", bg="#2C3E50", fg="white").pack(pady=5)
-        frame_end = tk.Frame(custom_win, bg="#2C3E50")
+        tk.Label(custom_win, text="Mês/Ano FIM:", bg="#ECF0F1").pack(pady=5)
+        frame_end = tk.Frame(custom_win, bg="#ECF0F1")
         frame_end.pack()
         om3 = tk.OptionMenu(frame_end, self.custom_month_end, *months)
         om3.pack(side="left", padx=5)
         om4 = tk.OptionMenu(frame_end, self.custom_year_end, *years)
         om4.pack(side="left", padx=5)
 
-        tk.Label(custom_win, text="Granularidade:", bg="#2C3E50", fg="white").pack(pady=5)
+        tk.Label(custom_win, text="Granularidade:", bg="#ECF0F1").pack(pady=5)
         self.custom_granularity = tk.StringVar(value="mensal")
         granularity_options = ["mensal", "semestral", "anual"]
-        frame_granularity = tk.Frame(custom_win, bg="#2C3E50")
+        frame_granularity = tk.Frame(custom_win, bg="#ECF0F1")
         frame_granularity.pack()
         om5 = tk.OptionMenu(frame_granularity, self.custom_granularity, *granularity_options)
         om5.pack(side="left", padx=5)
@@ -491,91 +505,32 @@ class StatisticsManager:
             self.draw_agencias(df)
 
     def update_info_box(self, df):
-        self.info_labels.clear()
-        info_frame = [w for w in self.left_frame.winfo_children() if isinstance(w, tk.Frame)][0]
-        
-        # Limpa labels existentes
-        for widget in info_frame.winfo_children():
-            widget.destroy()
-
         if df.empty:
-            lbl = tk.Label(info_frame, text="Sem dados disponíveis",
-                          bg="#2C3E50", fg="white", font=("Helvetica", 10, "bold"))
-            lbl.pack(pady=10)
-            return
+            total_requests = 0
+            pending_requests = 0
+            awaiting_payment_requests = 0
+            paid_requests = 0
+            total_paid_values = 0.0
+            total_released_values = 0.0
+        else:
+            total_requests = len(df)
+            pending_requests = 0
+            awaiting_payment_requests = 0
+            paid_requests = len(df)
+            df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
+            total_paid_values = df['Valor'].sum()
+            total_released_values = df['Valor'].sum()
 
-        df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
-        
-        # Informações específicas para cada tipo de visualização
-        if self.current_stat_type == "barras":
-            info = [
-                ("Total de Auxílios", f"{len(df)}"),
-                ("Valor Total (R$)", f"{df['Valor'].sum():.2f}"),
-                ("Valor Médio (R$)", f"{df['Valor'].mean():.2f}"),
-                ("Maior Valor (R$)", f"{df['Valor'].max():.2f}")
-            ]
-        
-        elif self.current_stat_type == "motivos":
-            motivos_count = df['Motivo da solicitação'].value_counts()
-            motivos_valores = df.groupby('Motivo da solicitação')['Valor'].sum()
-            motivo_principal_qtd = motivos_count.index[0] if not motivos_count.empty else "N/A"
-            motivo_principal_val = motivos_valores.index[0] if not motivos_valores.empty else "N/A"
-            info = [
-                ("Total de Auxílios", f"{len(df)}"),
-                ("Motivo Principal", f"{motivo_principal_qtd}"),
-                ("Maior Valor", f"{motivo_principal_val}"),
-            ]
-        
-        elif self.current_stat_type == "acumulado":
-            # Calcula número de períodos baseado no período atual
-            if self.current_period == "mes":
-                num_periodos = df["SemanaMes"].nunique()
-            elif self.current_period == "semestre":
-                num_periodos = 6  # Número fixo de meses em um semestre
-            elif self.current_period == "ano":
-                num_periodos = 12  # Número fixo de meses em um ano
-            elif self.current_period == "custom":
-                if self.custom_granularity.get() == "mensal":
-                    num_periodos = len(df.attrs.get("all_periods", []))
-                elif self.custom_granularity.get() == "semestral":
-                    num_periodos = len(df.attrs.get("all_periods", []))
-                else:  # anual
-                    num_periodos = len(df.attrs.get("all_periods", []))
-            else:  # total
-                num_periodos = df["YearSem"].nunique()
-                
-            media = df['Valor'].sum() / max(1, num_periodos)
-            info = [
-                ("Total de Auxílios", f"{len(df)}"),
-                ("Valor Acumulado (R$)", f"{df['Valor'].sum():.2f}"),
-                ("Média por Período (R$)", f"{media:.2f}")
-            ]
-        
-        else:  # agencias
-            agencias_count = df['Qual a agência de fomento?'].value_counts()
-            agencias_valor = df.groupby('Qual a agência de fomento?')['Valor'].sum()
-            agencia_principal_qtd = agencias_count.index[0] if not agencias_count.empty else "N/A"
-            agencia_principal_val = agencias_valor.index[0] if not agencias_valor.empty else "N/A"
-            info = [
-                ("Total de Auxílios", f"{len(df)}"),
-                ("Agência Principal", f"{agencia_principal_qtd}"),
-                ("Maior Valor", f"{agencia_principal_val}"),
-            ]
-
-        # Adiciona as informações ao frame
-        for i, (key, value) in enumerate(info):
-            frame = tk.Frame(info_frame, bg="#2C3E50")
-            frame.pack(pady=5, fill="x")
-            
-            lbl_key = tk.Label(frame, text=key, bg="#2C3E50", fg="white",
-                              font=("Helvetica", 9, "bold"), anchor="w")
-            lbl_key.pack(fill="x")
-            
-            lbl_val = tk.Label(frame, text=value, bg="#2C3E50", fg="#1ABC9C",
-                              font=("Helvetica", 10, "bold"), anchor="w")
-            lbl_val.pack(fill="x")
-            
-            self.info_labels.append((key, lbl_val))
+        info_map = {
+            "Total Solicitações": f"{total_requests}",
+            "Pendentes": f"{pending_requests}",
+            "Aguardando Pagto": f"{awaiting_payment_requests}",
+            "Pagas": f"{paid_requests}",
+            "Valor Pago (R$)": f"{total_paid_values:.2f}",
+            "Valor Liberado (R$)": f"{total_released_values:.2f}"
+        }
+        for (key, lbl_val) in self.info_labels:
+            lbl_val.config(text=info_map.get(key, "0"))
 
     def draw_barras(self, df):
         import matplotlib.cm as cm
@@ -761,104 +716,59 @@ class StatisticsManager:
 
     def draw_motivos_side_by_side(self, df):
         import matplotlib.cm as cm
-        # Diminuir a largura mantendo a altura
-        self.current_figure = plt.figure(figsize=(10, 8))
-        
-        # Criar grid com espaço para legenda na parte inferior
-        gs = self.current_figure.add_gridspec(3, 2, height_ratios=[1, 1, 0.2], width_ratios=[0.8, 0.8])
-        ax_bar1 = self.current_figure.add_subplot(gs[0, 0])  # Quantidade
-        ax_bar2 = self.current_figure.add_subplot(gs[0, 1])  # Valor
-        ax_pie2 = self.current_figure.add_subplot(gs[1, 0])  # Pizza Valor
-        ax_pie1 = self.current_figure.add_subplot(gs[1, 1])  # Pizza Quantidade
-        
-        for ax in [ax_bar1, ax_bar2, ax_pie1, ax_pie2]:
-            ax.set_facecolor("#D9D9D9")
+        self.current_figure, (ax_bar, ax_pie) = plt.subplots(1, 2, figsize=(8, 5))
+        self.current_figure.set_facecolor("#D9D9D9")
+        ax_bar.set_facecolor("#D9D9D9")
+        ax_pie.set_facecolor("#D9D9D9")
+    
+        ax_bar.set_ylabel("Valor (R$)")
     
         if df.empty:
-            for ax in [ax_bar1, ax_bar2, ax_pie1, ax_pie2]:
-                ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
-                ax.axis('off')
+            ax_bar.text(0.5, 0.5, "Sem dados", ha='center', va='center')
+            ax_bar.axis('off')
+            ax_pie.text(0.5, 0.5, "Sem dados", ha='center', va='center')
+            ax_pie.axis('off')
         else:
             df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
-            motivos_count = df['Motivo da solicitação'].value_counts()
-            motivos_valor = df.groupby('Motivo da solicitação')['Valor'].sum()
-            
-            # Reordenar usando fixed_motives_order
-            motivos_count = motivos_count.reindex(self.fixed_motives_order, fill_value=0)
-            motivos_valor = motivos_valor.reindex(self.fixed_motives_order, fill_value=0)
-            
-            if motivos_valor.sum() <= 0:
-                for ax in [ax_bar1, ax_bar2, ax_pie1, ax_pie2]:
-                    ax.text(0.5, 0.5, "Sem dados (pagos)", ha='center', va='center')
-                    ax.axis('off')
+            group = df.groupby('Motivo da solicitação')['Valor'].sum()
+            group_fixed = group.reindex(self.fixed_motives_order, fill_value=0)
+            total_sum = group_fixed.sum()
+    
+            if total_sum <= 0:
+                ax_bar.text(0.5, 0.5, "Sem dados (pagos)", ha='center', va='center')
+                ax_bar.axis('off')
+                ax_pie.text(0.5, 0.5, "Sem dados (pagos)", ha='center', va='center')
+                ax_pie.axis('off')
             else:
                 n = len(self.fixed_motives_order)
                 color_map = cm.get_cmap('Blues', n + 1)
-                colors = [color_map(float(i + 1) / n) for i in range(n)]
                 x = np.arange(n)
+                for i, motive in enumerate(self.fixed_motives_order):
+                    val = group_fixed[motive]
+                    c = color_map(float(i + 1) / n)
+                    ax_bar.bar(x[i], val, color=c, width=0.6)
+                    if val > 0:
+                        ax_bar.text(x[i], val * 1.01, f"{val:.2f}",
+                                    ha='center', va='bottom', fontsize=8)
+                ax_bar.set_xticks(x)
+                ax_bar.set_xticklabels(self.fixed_motives_order, rotation=45, ha='right')
+                ax_bar.set_title("Motivos: Barras (Pagos)")
+                maxv = group_fixed.max()
+                ax_bar.set_ylim(0, maxv * 1.2 if maxv > 0 else 1)
     
-                # Ajuste das posições dos gráficos de barras
-                pos1 = ax_bar1.get_position()
-                pos2 = ax_bar2.get_position()
-                ax_bar1.set_position([pos1.x0 + 0.05, pos1.y0, pos1.width*0.85, pos1.height])
-                ax_bar2.set_position([pos2.x0 + 0.05, pos2.y0, pos2.width*0.85, pos2.height])
-    
-                # Gráficos de barras com legenda apenas no primeiro
-                bars1 = ax_bar1.bar(x, motivos_count, color=colors)
-                ax_bar1.set_ylabel('Número de Solicitações')
-                ax_bar1.set_title('Distribuição por Quantidade')
-                ax_bar1.set_xticks(x)
-                ax_bar1.set_xticklabels(self.fixed_motives_order, rotation=45, ha='right')
-                ax_bar1.legend(self.fixed_motives_order, 
-                              title="Motivos",
-                              loc='upper right',
-                              fontsize=8)
-    
-                bars2 = ax_bar2.bar(x, motivos_valor, color=colors)
-                ax_bar2.set_ylabel('Valor Total (R$)')
-                ax_bar2.set_title('Distribuição por Valor')
-                ax_bar2.set_xticks(x)
-                ax_bar2.set_xticklabels(self.fixed_motives_order, rotation=45, ha='right')
-    
-                # Adicionar valores nas barras
-                def autolabel(ax, bars):
-                    for bar in bars:
-                        height = bar.get_height()
-                        if height > 0:
-                            ax.text(bar.get_x() + bar.get_width()/2, height,
-                                   f'{height:.0f}' if height.is_integer() else f'{height:.2f}',
-                                   ha='center', va='bottom', fontsize=8)
-    
-                autolabel(ax_bar1, bars1)
-                autolabel(ax_bar2, bars2)
-    
-                # Gráficos de Pizza sem título
-                _, _, autotexts1 = ax_pie1.pie(motivos_count, colors=colors, autopct='%1.1f%%')
-                _, _, autotexts2 = ax_pie2.pie(motivos_valor, colors=colors, autopct='%1.1f%%')
-                
-                # Ajustar cor dos textos do autopct
-                for autotext in (autotexts1 + autotexts2):
-                    autotext.set_color('black')
-                
-                # Remover títulos dos gráficos de pizza
-                ax_pie1.set_title('')
-                ax_pie2.set_title('')
-    
-        # Legenda única na parte inferior do frame inteiro
-        self.current_figure.legend(self.fixed_motives_order,
-                                 bbox_to_anchor=(0.5, -0.05),
-                                 loc='lower center',
-                                 ncol=len(self.fixed_motives_order),
-                                 fontsize=8,
-                                 frameon=True,
-                                 facecolor='white',
-                                 edgecolor='black')
+                values = group_fixed.values
+                colors = [color_map(float(i + 1) / n) for i in range(n)]
+                wedges, _, _ = ax_pie.pie(values, labels=None, colors=colors, autopct='%1.1f%%')
+                ax_pie.set_title("Motivos: Pizza (Pagos)")
+                ax_pie.legend(wedges, self.fixed_motives_order, fontsize=8,
+                              loc='lower center', bbox_to_anchor=(0.5, -0.15),
+                              ncol=2)
     
         self.current_figure.tight_layout()
         canvas = FigureCanvasTkAgg(self.current_figure, master=self.graph_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
-
+    
     def draw_acumulado(self, df):
         self.current_figure, ax = plt.subplots(figsize=(7, 5))
         self.current_figure.set_facecolor("#D9D9D9")
@@ -980,100 +890,28 @@ class StatisticsManager:
         canvas = FigureCanvasTkAgg(self.current_figure, master=self.graph_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
-
+    
     def draw_agencias(self, df):
         import matplotlib.cm as cm
-        # Diminuir a largura mantendo a altura
-        self.current_figure = plt.figure(figsize=(10, 8))
-        
-        # Criar grid com espaço para legenda na parte inferior
-        gs = self.current_figure.add_gridspec(3, 2, height_ratios=[1, 1, 0.2], width_ratios=[0.8, 0.8])
-        ax_bar1 = self.current_figure.add_subplot(gs[0, 0])  # Quantidade
-        ax_bar2 = self.current_figure.add_subplot(gs[0, 1])  # Valor
-        ax_pie2 = self.current_figure.add_subplot(gs[1, 0])  # Pizza Valor
-        ax_pie1 = self.current_figure.add_subplot(gs[1, 1])  # Pizza Quantidade
-        
-        for ax in [ax_bar1, ax_bar2, ax_pie1, ax_pie2]:
-            ax.set_facecolor("#D9D9D9")
+        self.current_figure, ax = plt.subplots(figsize=(7, 5))
+        self.current_figure.set_facecolor("#D9D9D9")
+        ax.set_facecolor("#D9D9D9")
     
-        if df.empty:
-            for ax in [ax_bar1, ax_bar2, ax_pie1, ax_pie2]:
-                ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
-                ax.axis('off')
+        df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
+        agencias = df['Qual a agência de fomento?'].value_counts()
+        total_a = agencias.sum()
+        if total_a <= 0:
+            ax.text(0.5, 0.5, "Nenhum dado de Agências", ha='center', va='center')
+            ax.axis('off')
         else:
-            df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
-            agencias_count = df['Qual a agência de fomento?'].value_counts()
-            agencias_valor = df.groupby('Qual a agência de fomento?')['Valor'].sum()
-    
-            # Ordenar agências por valor total
-            all_agencias = sorted(set(agencias_count.index) | set(agencias_valor.index))
-            agencias_count = agencias_count.reindex(all_agencias, fill_value=0)
-            agencias_valor = agencias_valor.reindex(all_agencias, fill_value=0)
-    
-            n = len(all_agencias)
+            n = len(agencias)
             color_map = cm.get_cmap('Blues', n + 1)
             colors = [color_map(float(i + 1) / n) for i in range(n)]
-            x = np.arange(n)
+            wedges, _, _ = ax.pie(agencias.values, labels=None,
+                                  colors=colors, autopct='%1.1f%%')
+            ax.set_title("Agências")
+            ax.legend(wedges, agencias.index, loc='best', fontsize=8)
     
-            # Ajuste das posições dos gráficos de barras
-            pos1 = ax_bar1.get_position()
-            pos2 = ax_bar2.get_position()
-            ax_bar1.set_position([pos1.x0 + 0.05, pos1.y0, pos1.width*0.85, pos1.height])
-            ax_bar2.set_position([pos2.x0 + 0.05, pos2.y0, pos2.width*0.85, pos2.height])
-    
-            # Gráficos de barras com legenda apenas no primeiro
-            bars1 = ax_bar1.bar(x, agencias_count, color=colors)
-            ax_bar1.set_ylabel('Número de Solicitações')
-            ax_bar1.set_title('Distribuição por Quantidade')
-            ax_bar1.set_xticks(x)
-            ax_bar1.set_xticklabels(all_agencias, rotation=45, ha='right')
-            ax_bar1.legend(all_agencias, 
-                          title="Agências",
-                          loc='upper right',
-                          fontsize=8)
-    
-            bars2 = ax_bar2.bar(x, agencias_valor, color=colors)
-            ax_bar2.set_ylabel('Valor Total (R$)')
-            ax_bar2.set_title('Distribuição por Valor')
-            ax_bar2.set_xticks(x)
-            ax_bar2.set_xticklabels(all_agencias, rotation=45, ha='right')
-    
-            # Adicionar valores nas barras
-            def autolabel(ax, bars):
-                for bar in bars:
-                    height = bar.get_height()
-                    if height > 0:
-                        ax.text(bar.get_x() + bar.get_width()/2, height,
-                               f'{height:.0f}' if height.is_integer() else f'{height:.2f}',
-                               ha='center', va='bottom', fontsize=8)
-    
-            autolabel(ax_bar1, bars1)
-            autolabel(ax_bar2, bars2)
-    
-            # Gráficos de Pizza sem título
-            _, _, autotexts1 = ax_pie1.pie(agencias_count, colors=colors, autopct='%1.1f%%')
-            _, _, autotexts2 = ax_pie2.pie(agencias_valor, colors=colors, autopct='%1.1f%%')
-            
-            # Ajustar cor dos textos do autopct
-            for autotext in (autotexts1 + autotexts2):
-                autotext.set_color('black')
-            
-            # Remover títulos dos gráficos de pizza
-            ax_pie1.set_title('')
-            ax_pie2.set_title('')
-    
-        # Legenda única na parte inferior do frame inteiro
-        self.current_figure.legend(all_agencias,
-                                 bbox_to_anchor=(0.5, -0.05),
-                                 loc='lower center',
-                                 ncol=min(len(all_agencias), 4),
-                                 fontsize=8,
-                                 frameon=True,
-                                 facecolor='white',
-                                 edgecolor='black')
-    
-        self.current_figure.tight_layout()
         canvas = FigureCanvasTkAgg(self.current_figure, master=self.graph_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
-
