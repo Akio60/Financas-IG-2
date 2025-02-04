@@ -562,28 +562,66 @@ class App:
         self.settings_manager.open_settings()
 
     def show_log_history(self):
-        log_path = os.path.join(os.getcwd(), 'app.log')
-        if not os.path.exists(log_path):
-            messagebox.showinfo("Histórico de Alterações", "Nenhum log encontrado.")
+        """
+        Atualiza a origem dos dados de log para que sejam lidos da planilha
+        do Google Sheets (em vez do arquivo local). Essa planilha deve ter duas abas:
+        uma chamada "Info" para logs de nível INFO e WARNING e outra chamada "Errors"
+        para logs de nível ERROR.
+        """
+        try:
+            # Importa os módulos necessários para acesso à planilha
+            from oauth2client.service_account import ServiceAccountCredentials
+            import gspread
+        except ImportError:
+            messagebox.showerror("Erro", "As bibliotecas gspread e oauth2client são necessárias para acessar o Google Sheets.")
             return
 
-        # Abre o arquivo com erros de decodificação substituídos
-        with open(log_path, 'r', encoding='utf-8', errors="replace") as f:
-            log_lines = f.readlines()
+        # Define os escopos e autentica usando o arquivo de credenciais
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        try:
+            creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
+        except Exception as e:
+            messagebox.showerror("Erro de Credenciais", f"Erro ao carregar o arquivo de credenciais: {e}")
+            return
+        client = gspread.authorize(creds)
 
-        # Filtra as linhas com [ERROR] e [INFO]
-        error_lines = [line for line in log_lines if "[ERROR]" in line]
-        info_lines = [line for line in log_lines if "[INFO]" in line]
+        # Abre a planilha de logs pela URL fornecida
+        SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/15_0ArdsS89PRz1FmMmpTU9GQzETnUws6Ta-_TNCWITQ/edit?usp=sharing"
+        try:
+            spreadsheet = client.open_by_url(SPREADSHEET_URL)
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir a planilha: {e}")
+            return
 
+        # Tenta acessar as worksheets "Info" e "Errors"
+        try:
+            info_sheet = spreadsheet.worksheet("Info")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível acessar a aba 'Info': {e}")
+            return
+
+        try:
+            error_sheet = spreadsheet.worksheet("Errors")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível acessar a aba 'Errors': {e}")
+            return
+
+        # Obtém todos os registros (list of lists) de cada aba
+        info_data = info_sheet.get_all_values()
+        error_data = error_sheet.get_all_values()
+
+        # Se houver cabeçalho, remove-o (primeira linha)
+        info_lines = [" | ".join(row) for row in info_data[1:]] if len(info_data) > 1 else []
+        error_lines = [" | ".join(row) for row in error_data[1:]] if len(error_data) > 1 else []
+
+        # Cria a janela de histórico de alterações
         log_window = tb.Toplevel(self.root)
         log_window.title("Histórico de Alterações")
         log_window.geometry("800x600")
 
-        # Cria um frame principal com padding
         main_frame = tb.Frame(log_window, padding=20)
         main_frame.pack(fill=BOTH, expand=True)
 
-        # Cria dois frames lado a lado
         left_frame = tb.Frame(main_frame)
         left_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=10)
         right_frame = tb.Frame(main_frame)
@@ -593,12 +631,12 @@ class App:
         error_label.pack(anchor="w")
         error_text = tb.ScrolledText(left_frame, width=40, height=30)
         error_text.pack(fill=BOTH, expand=True)
-        error_text.insert('1.0', "".join(error_lines))
+        error_text.insert('1.0', "\n".join(error_lines))
         error_text.configure(state='disabled')
 
         info_label = tb.Label(right_frame, text="[INFO]", font=("Helvetica", 12, "bold"))
         info_label.pack(anchor="w")
         info_text = tb.ScrolledText(right_frame, width=40, height=30)
         info_text.pack(fill=BOTH, expand=True)
-        info_text.insert('1.0', "".join(info_lines))
+        info_text.insert('1.0', "\n".join(info_lines))
         info_text.configure(state='disabled')
