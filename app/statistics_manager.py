@@ -401,7 +401,7 @@ class StatisticsManager:
                 start_date = pd.Timestamp(year, 7, 1)
                 end_date = pd.Timestamp(year, 12, 31, 23, 59, 59)
             df = df[(df['Ultima Atualizacao'] >= start_date) & (df['Ultima Atualizacao'] <= end_date)].copy()
-            df["MesAbrev"] = df["Ultima Atualizacao"].dt.strftime("%b")
+            df["MesAbrev"] = df["Ultima Atualizacao"].dt.strftime("%b").map(self._translate_month)
             return df
 
         elif self.current_period == "ano":
@@ -409,7 +409,7 @@ class StatisticsManager:
             start_date = pd.Timestamp(year, 1, 1)
             end_date = pd.Timestamp(year, 12, 31, 23, 59, 59)
             df = df[(df['Ultima Atualizacao'] >= start_date) & (df['Ultima Atualizacao'] <= end_date)].copy()
-            df["MesAbrev"] = df["Ultima Atualizacao"].dt.strftime("%b")
+            df["MesAbrev"] = df["Ultima Atualizacao"].dt.strftime("%b").map(self._translate_month)
             return df
 
         elif self.current_period == "custom":
@@ -428,7 +428,7 @@ class StatisticsManager:
                 elif granularity == "semestral":
                     df["Periodo"] = df["Ultima Atualizacao"].dt.to_period("6M")
                 elif granularity == "anual":
-                    df["Periodo"] = df["Ultima Atualizacao"].dt.to_period("A")
+                    df["Periodo"] = df["Ultima Atualizacao"].dt.to_period("Y")
             except:
                 messagebox.showwarning("Aviso", "Datas inválidas, exibindo tudo.")
             return df
@@ -439,6 +439,13 @@ class StatisticsManager:
                 return (y, s)
             df["YearSem"] = df["Ultima Atualizacao"].apply(year_sem)
             return df
+
+    def _translate_month(self, month_abbr):
+        translations = {
+            "Jan": "Jan", "Feb": "Fev", "Mar": "Mar", "Apr": "Abr", "May": "Mai", "Jun": "Jun",
+            "Jul": "Jul", "Aug": "Ago", "Sep": "Set", "Oct": "Out", "Nov": "Nov", "Dec": "Dez"
+        }
+        return translations.get(month_abbr, month_abbr)
 
     def redraw_chart(self):
         if not self.stats_window or not self.stats_window.winfo_exists():
@@ -552,9 +559,9 @@ class StatisticsManager:
                     else:
                         now = date.today()
                         if now.month <= 6:
-                            semester_months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+                            semester_months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"]
                         else:
-                            semester_months = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                            semester_months = ["Jul", "Ago", "Set", "Out", "Nov", "Dez"]
                         pivot = pivot.reindex(semester_months, fill_value=0)
                         x = np.arange(len(semester_months))
                         bottom = np.zeros(len(x))
@@ -585,7 +592,7 @@ class StatisticsManager:
                         ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
                         ax.axis('off')
                     else:
-                        all_months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                        all_months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
                         pivot = pivot.reindex(all_months, fill_value=0)
                         x = np.arange(len(all_months))
                         bottom = np.zeros(len(x))
@@ -766,9 +773,9 @@ class StatisticsManager:
                     group = df.groupby("MesAbrev")["Valor"].sum()
                     now = date.today()
                     if now.month <= 6:
-                        semester_months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
+                        semester_months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"]
                     else:
-                        semester_months = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                        semester_months = ["Jul", "Ago", "Set", "Out", "Nov", "Dez"]
                     group = group.reindex(semester_months, fill_value=0)
                     cumvals = group.cumsum()
                     x = np.arange(len(semester_months))
@@ -787,7 +794,7 @@ class StatisticsManager:
                     ax.axis('off')
                 else:
                     group = df.groupby("MesAbrev")["Valor"].sum()
-                    all_months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                    all_months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
                     group = group.reindex(all_months, fill_value=0)
                     cumvals = group.cumsum()
                     x = np.arange(12)
@@ -799,6 +806,23 @@ class StatisticsManager:
                     ax.set_xticks(x)
                     ax.set_xticklabels(all_months, rotation=45, ha='right')
                     ax.set_title("Acumulado (Ano)")
+    
+            elif self.current_period == "custom":
+                if "Periodo" not in df.columns:
+                    ax.text(0.5, 0.5, "Sem col Periodo", ha='center', va='center')
+                    ax.axis('off')
+                else:
+                    pivot = df.groupby("Periodo")["Valor"].sum().reindex(df["Periodo"].unique(), fill_value=0)
+                    cumvals = pivot.cumsum()
+                    x = np.arange(len(pivot.index))
+                    ax.plot(x, cumvals, color="navy", marker="o", linewidth=2)
+                    for i, val in enumerate(cumvals):
+                        if val > 0:
+                            ax.text(x[i], val, f"{val:.2f}",
+                                    ha='left', va='bottom', color='black', fontsize=9)
+                    ax.set_xticks(x)
+                    ax.set_xticklabels([str(p) for p in pivot.index], rotation=45, ha='right')
+                    ax.set_title("Acumulado (Personalizado)")
     
             else:
                 df = df.sort_values(by=["Ultima Atualizacao"])
