@@ -81,3 +81,5 @@
 2025-02-04 00:14:53,334 [INFO] E-mail enviado para vitorakioisawa@gmail.com - assunto: Pagamento Autorizado
 2025-02-04 00:15:58,378 [INFO] update_status: A3 mudou status para Pago, timestamp=02/02/2025 16:36:43
 2025-02-04 00:16:03,109 [INFO] E-mail enviado para vitorakioisawa@gmail.com - assunto: Pagamento Efetuado
+2025-02-04 01:19:18,945 [INFO] update_status: A3 mudou status para Pronto para pagamento, timestamp=11/11/2024 23:22:05
+2025-02-04 01:19:23,782 [INFO] E-mail enviado para vitorakioisawa@gmail.com - assunto: Pagamento Autorizado

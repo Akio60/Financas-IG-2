@@ -138,7 +138,7 @@ class App:
                 # Botões do menu lateral
         self.home_button = tb.Button(
             self.left_frame,
-            text="🏠",
+            text="🏠 Home",
             bootstyle=PRIMARY,
             command=self.go_to_home
         )

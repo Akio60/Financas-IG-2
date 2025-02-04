@@ -49,6 +49,7 @@ STATUS_COLORS = {
     'Pronto para pagamento': '#00008B',
     'Pago': '#4B0082',
     'Cancelado': '#696969',
+    '': '#2C3E50'
 }
 
 COLUMN_DISPLAY_NAMES = {

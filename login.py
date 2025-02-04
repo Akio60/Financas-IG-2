@@ -1,9 +1,7 @@
-#login.py
-
 import tkinter as tk
 from tkinter import Canvas, Entry, PhotoImage, messagebox
 from pathlib import Path
-from PIL import Image,ImageTk
+from PIL import Image, ImageTk
 import os
 import json
 import webbrowser
@@ -39,7 +37,7 @@ class RoundedButton(tk.Canvas):
         x1, y1 = bw, bw
         x2, y2 = w - bw, h - bw
 
-        # Cantos
+        # Desenha os cantos (arcos)
         self.create_arc(x1, y1, x1+2*r, y1+2*r, start=90, extent=90,
                         fill=self.bg_color, outline=self.bg_color)
         self.create_arc(x2-2*r, y1, x2, y1+2*r, start=0, extent=90,
@@ -89,21 +87,34 @@ def load_users_db():
 USERS_DB = load_users_db()
 
 BASE_DIR = Path(__file__).resolve().parent
+os.chdir(BASE_DIR)
 ASSETS_PATH = BASE_DIR / "images" / "assets" / "login"
 
 def relative_to_assets(path: str) -> Path:
     return ASSETS_PATH / Path(path)
 
+def load_image(filename: str):
+    path = relative_to_assets(filename)
+    if not path.exists():
+        print(f"Imagem {filename} não encontrada em {path}")
+    return PhotoImage(file=str(path))
+
 class LoginWindow:
     def __init__(self):
         self.window = tk.Tk()
+        # Força a opção global de fundo para todos os widgets
+        self.window.option_add("*Background", "#2C3E50")
         self.window.geometry("880x520")
-        self.window.configure(bg="#3A7FF6")
+        self.window.configure(bg="#2C3E50")
         self.window.title("Tela de Login")
-        im = Image.open('bitmap_UNI.ico')
-        photo = ImageTk.PhotoImage(im)
-        self.window.wm_iconphoto(True, photo)
-
+        try:
+            icon_path = relative_to_assets("bitmap_UNI.ico")
+            im = Image.open(str(icon_path))
+            photo = ImageTk.PhotoImage(im)
+            self.window.iconphoto(True, photo)
+        except Exception as e:
+            print(f"Erro ao carregar o ícone: {e}")
+        
         self.username = None
         self.role = None
 
@@ -123,7 +134,7 @@ class LoginWindow:
     def _build_ui(self):
         self.canvas = Canvas(
             self.window,
-            bg="#2C3E50",
+            bg="#2C3E50",  # Usa o mesmo bg definido na janela
             height=520,
             width=920,
             bd=0,
@@ -153,9 +164,10 @@ class LoginWindow:
         )
         self.login_button.place(x=557, y=361)
 
-        entry_image_1 = PhotoImage(file=relative_to_assets("entry_1.png"))
+        entry_image_1 = load_image("entry_1.png")
         self.canvas.create_image(654.5, 285.0, image=entry_image_1)
         self.entry_image_1 = entry_image_1
+
         self.entry_pass = Entry(
             bd=0,
             bg="#B1CBFA",
@@ -173,9 +185,10 @@ class LoginWindow:
             font=("Roboto Bold", 20)
         )
 
-        entry_image_2 = PhotoImage(file=relative_to_assets("entry_2.png"))
+        entry_image_2 = load_image("entry_2.png")
         self.canvas.create_image(654.5, 155.0, image=entry_image_2)
         self.entry_image_2 = entry_image_2
+
         self.entry_user = Entry(
             bd=0,
             bg="#B1CBFA",
@@ -234,8 +247,7 @@ class LoginWindow:
             font=("Rokkitt Bold", 8)
         )
 
-        image_image_1 = PhotoImage(file=relative_to_assets("image_1.png"))
-
+        image_image_1 = load_image("image_1.png")
         self.hyperlink_label = tk.Label(
             self.canvas,
             image=image_image_1,
