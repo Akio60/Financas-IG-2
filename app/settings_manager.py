@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import messagebox
 import json
 import os
+import hashlib
 
 BTN_WIDTH = 35
 
@@ -54,6 +55,10 @@ def load_table_colors():
 def save_table_colors(colors):
     with open(TABLE_COLORS_FILE, 'w', encoding='utf-8') as f:
         json.dump(colors, f, indent=4, ensure_ascii=False)
+
+def hash_password(password):
+    """Retorna o hash SHA-256 da senha fornecida."""
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 class SettingsManager:
     def __init__(self, app):
@@ -463,7 +468,9 @@ class SettingsManager:
                 if user in db_users:
                     messagebox.showwarning("Aviso", "Usuário já existe.")
                     return
-                db_users[user] = {"password": pwd, "role": r, "email": em}
+                # Cria o hash da senha usando a função hash_password
+                hashed_pwd = hash_password(pwd+user)
+                db_users[user] = {"hashed_password": hashed_pwd, "role": r, "email": em}
                 save_users_db(db_users)
                 refresh_users()
                 addw.destroy()

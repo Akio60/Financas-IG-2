@@ -1,3 +1,5 @@
+# login.py
+
 import tkinter as tk
 from tkinter import Canvas, Entry, PhotoImage, messagebox
 from pathlib import Path
@@ -5,6 +7,7 @@ from PIL import Image, ImageTk
 import os
 import json
 import webbrowser
+import hashlib
 
 class RoundedButton(tk.Canvas):
     def __init__(
@@ -99,10 +102,14 @@ def load_image(filename: str):
         print(f"Imagem {filename} não encontrada em {path}")
     return PhotoImage(file=str(path))
 
+def hash_password(password):
+    """Retorna o hash SHA-256 da senha."""
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
 class LoginWindow:
     def __init__(self):
         self.window = tk.Tk()
-        # Força a opção global de fundo para todos os widgets
+        # Define a opção global de fundo para que todos os widgets herdem essa cor
         self.window.option_add("*Background", "#2C3E50")
         self.window.geometry("880x520")
         self.window.configure(bg="#2C3E50")
@@ -134,7 +141,7 @@ class LoginWindow:
     def _build_ui(self):
         self.canvas = Canvas(
             self.window,
-            bg="#2C3E50",  # Usa o mesmo bg definido na janela
+            bg="#2C3E50",
             height=520,
             width=920,
             bd=0,
@@ -272,12 +279,14 @@ class LoginWindow:
         password = self.entry_pass.get().strip()
 
         if user in USERS_DB:
-            if USERS_DB[user]["password"] == password:
-                self.username = user
-                self.role = USERS_DB[user]["role"]
-                self.window.destroy()
-            else:
-                messagebox.showerror("Erro", "Senha incorreta!")
+            # Se o usuário possuir o campo "hashed_password", compara o hash da senha digitada
+            if "hashed_password" in USERS_DB[user]:
+                if USERS_DB[user]["hashed_password"] == hash_password(password+user):
+                    self.username = user
+                    self.role = USERS_DB[user]["role"]
+                    self.window.destroy()
+                else:
+                    messagebox.showerror("Erro", "Senha incorreta!")
         else:
             messagebox.showerror("Erro", "Usuário não encontrado!")
 
