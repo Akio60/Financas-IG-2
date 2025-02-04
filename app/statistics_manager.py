@@ -423,17 +423,37 @@ class StatisticsManager:
                 end_date = pd.Timestamp(ye, me, days_in_end, 23, 59, 59)
                 df = df[(df['Ultima Atualizacao'] >= start_date) & (df['Ultima Atualizacao'] <= end_date)].copy()
                 
-                # Define período com base na granularidade selecionada
+                # Gera todos os períodos no intervalo
                 granularity = self.custom_granularity.get()
+                date_range = pd.date_range(start_date, end_date, freq='M')
+                
                 if granularity == "mensal":
+                    all_periods = [d.strftime("%Y-%m") for d in date_range]
+                    period_labels = [d.strftime("%b/%y") for d in date_range]
                     df["Periodo"] = df["Ultima Atualizacao"].dt.strftime("%Y-%m")
                     df["PeriodoLabel"] = df["Ultima Atualizacao"].dt.strftime("%b/%y")
+                
                 elif granularity == "semestral":
+                    # Gera semestres únicos no intervalo
+                    semesters = set()
+                    for d in date_range:
+                        semesters.add(f"{d.year}-S{1 if d.month <= 6 else 2}")
+                    all_periods = sorted(list(semesters))
+                    period_labels = all_periods
                     df["Periodo"] = df["Ultima Atualizacao"].apply(lambda x: f"{x.year}-S{1 if x.month <= 6 else 2}")
                     df["PeriodoLabel"] = df["Periodo"]
+                
                 else:  # anual
+                    years = set(d.year for d in date_range)
+                    all_periods = [str(y) for y in sorted(years)]
+                    period_labels = all_periods
                     df["Periodo"] = df["Ultima Atualizacao"].dt.strftime("%Y")
                     df["PeriodoLabel"] = df["Periodo"]
+                
+                # Adiciona os períodos e labels ao DataFrame para uso posterior
+                df.attrs["all_periods"] = all_periods
+                df.attrs["period_labels"] = period_labels
+                
             except:
                 messagebox.showwarning("Aviso", "Datas inválidas, exibindo tudo.")
             return df
@@ -623,16 +643,19 @@ class StatisticsManager:
                     ax.text(0.5, 0.5, "Sem col Periodo/PeriodoLabel", ha='center', va='center')
                     ax.axis('off')
                 else:
+                    all_periods = df.attrs.get("all_periods", sorted(df["Periodo"].unique()))
+                    period_labels = df.attrs.get("period_labels", all_periods)
+                    
                     pivot = df.groupby(["Periodo", "Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
+                    pivot = pivot.reindex(all_periods, fill_value=0)
+                    
                     if pivot.empty:
                         ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
                         ax.axis('off')
                     else:
-                        sorted_idx = sorted(pivot.index)
-                        pivot = pivot.reindex(sorted_idx)
-                        x = np.arange(len(pivot.index))
+                        x = np.arange(len(all_periods))
                         bottom = np.zeros(len(x))
-                        motives = pivot.columns
+                        motives = pivot.columns if not pivot.empty else []
                         color_map = cm.get_cmap('Blues', len(motives) + 1)
                         
                         for i, motive in enumerate(motives[::-1]):
@@ -646,10 +669,8 @@ class StatisticsManager:
                                 ax.text(i, val * 1.01, f"{val:.2f}",
                                         ha='center', va='bottom', fontsize=8, color='black')
                         
-                        # Usar PeriodoLabel para exibição
-                        periodo_labels = [df[df["Periodo"] == p]["PeriodoLabel"].iloc[0] for p in sorted_idx]
                         ax.set_xticks(x)
-                        ax.set_xticklabels(periodo_labels, rotation=45, ha='right')
+                        ax.set_xticklabels(period_labels, rotation=45, ha='right')
                         ax.legend(fontsize=8)
                         max_val = bottom.max()
                         ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
@@ -826,10 +847,14 @@ class StatisticsManager:
                     ax.text(0.5, 0.5, "Sem col Periodo/PeriodoLabel", ha='center', va='center')
                     ax.axis('off')
                 else:
-                    sorted_idx = sorted(df["Periodo"].unique())
-                    group = df.groupby("Periodo")["Valor"].sum().reindex(sorted_idx, fill_value=0)
+                    all_periods = df.attrs.get("all_periods", sorted(df["Periodo"].unique()))
+                    period_labels = df.attrs.get("period_labels", all_periods)
+                    
+                    group = df.groupby("Periodo")["Valor"].sum()
+                    group = group.reindex(all_periods, fill_value=0)
                     cumvals = group.cumsum()
-                    x = np.arange(len(sorted_idx))
+                    
+                    x = np.arange(len(all_periods))
                     ax.plot(x, cumvals, color="navy", marker="o", linewidth=2)
                     
                     for i, val in enumerate(cumvals):
@@ -837,10 +862,8 @@ class StatisticsManager:
                             ax.text(x[i], val, f"{val:.2f}",
                                     ha='left', va='bottom', color='black', fontsize=9)
                     
-                    # Usar PeriodoLabel para exibição
-                    periodo_labels = [df[df["Periodo"] == p]["PeriodoLabel"].iloc[0] for p in sorted_idx]
                     ax.set_xticks(x)
-                    ax.set_xticklabels(periodo_labels, rotation=45, ha='right')
+                    ax.set_xticklabels(period_labels, rotation=45, ha='right')
                     
                     granularity = self.custom_granularity.get()
                     ax.set_title(f"Acumulado Personalizado ({granularity})")
