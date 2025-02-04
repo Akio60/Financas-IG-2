@@ -1,5 +1,3 @@
-# statistics_manager.py
-
 import os
 import sys
 from pathlib import Path
@@ -57,6 +55,7 @@ class RoundedButton(tk.Canvas):
         x1, y1 = bw, bw
         x2, y2 = w - bw, h - bw
 
+        # Arcos para os cantos
         self.create_arc(x1, y1, x1+2*r, y1+2*r, start=90, extent=90,
                         fill=self.bg_color, outline=self.bg_color)
         self.create_arc(x2-2*r, y1, x2, y1+2*r, start=0, extent=90,
@@ -66,11 +65,13 @@ class RoundedButton(tk.Canvas):
         self.create_arc(x2-2*r, y2-2*r, x2, y2, start=270, extent=90,
                         fill=self.bg_color, outline=self.bg_color)
 
+        # Retângulos centrais
         self.create_rectangle(x1+r, y1, x2-r, y2,
                               fill=self.bg_color, outline=self.bg_color)
         self.create_rectangle(x1, y1+r, x2, y2-r,
                               fill=self.bg_color, outline=self.bg_color)
 
+        # Contorno (se necessário)
         if bw > 0:
             self.create_arc(x1, y1, x1+2*r, y1+2*r, start=90, extent=90,
                             style="arc", outline=self.border_color, width=bw)
@@ -80,7 +81,6 @@ class RoundedButton(tk.Canvas):
                             style="arc", outline=self.border_color, width=bw)
             self.create_arc(x2-2*r, y2-2*r, x2, y2, start=270, extent=90,
                             style="arc", outline=self.border_color, width=bw)
-
             self.create_line(x1+r, y1, x2-r, y1, fill=self.border_color, width=bw)
             self.create_line(x1+r, y2, x2-r, y2, fill=self.border_color, width=bw)
             self.create_line(x1, y1+r, x1, y2-r, fill=self.border_color, width=bw)
@@ -116,6 +116,7 @@ class StatisticsManager:
         self.type_buttons = {}
         self.info_labels = []
 
+        # Variáveis para período personalizado
         self.custom_month_start = None
         self.custom_year_start = None
         self.custom_month_end = None
@@ -305,7 +306,7 @@ class StatisticsManager:
             text = "Visualizando: Mês atual (por semanas, Status=Pago)"
         elif self.current_period == "semestre":
             now = date.today()
-            sem = 1 if now.month<=6 else 2
+            sem = 1 if now.month <= 6 else 2
             text = f"Visualizando: {sem}º Semestre de {now.year} (mes a mes, pagos)"
         elif self.current_period == "ano":
             text = f"Visualizando: Ano {date.today().year} (mes a mes, pagos)"
@@ -325,20 +326,20 @@ class StatisticsManager:
     def ask_custom_period(self):
         custom_win = tk.Toplevel(self.stats_window)
         custom_win.title("Período Personalizado")
-        cw, ch = 300, 180
+        cw, ch = 300, 220
         custom_win.geometry(f"{cw}x{ch}")
         self._center_window(custom_win, cw, ch)
-
         custom_win.config(bg="#ECF0F1")
 
         tk.Label(custom_win, text="Mês/Ano INÍCIO:", bg="#ECF0F1").pack(pady=5)
-        months = [str(i).zfill(2) for i in range(1,13)]
-        years  = [str(y) for y in range(2020, 2035)]
+        months = [str(i).zfill(2) for i in range(1, 13)]
+        years = [str(y) for y in range(2020, 2035)]
 
         self.custom_month_start = tk.StringVar(value="01")
-        self.custom_year_start  = tk.StringVar(value="2023")
-        self.custom_month_end   = tk.StringVar(value="12")
-        self.custom_year_end    = tk.StringVar(value="2023")
+        self.custom_year_start = tk.StringVar(value="2023")
+        today = date.today()
+        self.custom_month_end = tk.StringVar(value=str(today.month).zfill(2))
+        self.custom_year_end = tk.StringVar(value=str(today.year))
 
         frame_start = tk.Frame(custom_win, bg="#ECF0F1")
         frame_start.pack()
@@ -355,6 +356,14 @@ class StatisticsManager:
         om4 = tk.OptionMenu(frame_end, self.custom_year_end, *years)
         om4.pack(side="left", padx=5)
 
+        tk.Label(custom_win, text="Granularidade:", bg="#ECF0F1").pack(pady=5)
+        self.custom_granularity = tk.StringVar(value="mensal")
+        granularity_options = ["mensal", "semestral", "anual"]
+        frame_granularity = tk.Frame(custom_win, bg="#ECF0F1")
+        frame_granularity.pack()
+        om5 = tk.OptionMenu(frame_granularity, self.custom_granularity, *granularity_options)
+        om5.pack(side="left", padx=5)
+
         def apply_custom():
             self.set_period("custom")
             custom_win.destroy()
@@ -363,6 +372,73 @@ class StatisticsManager:
                   bg="#1ABC9C", fg="#fff",
                   font=("Helvetica", 10, "bold"), bd=0,
                   command=apply_custom).pack(pady=10)
+
+    def _apply_period_filter(self, df):
+        now = pd.Timestamp.now()
+        df = df.copy()
+        if df.empty:
+            return df
+
+        if self.current_period == "mes":
+            year = now.year
+            month = now.month
+            start_date = pd.Timestamp(year, month, 1)
+            days_in_month = calendar.monthrange(year, month)[1]
+            end_date = pd.Timestamp(year, month, days_in_month, 23, 59, 59)
+            df = df[(df['Ultima Atualizacao'] >= start_date) & (df['Ultima Atualizacao'] <= end_date)].copy()
+            if "SemanaMes" not in df.columns:
+                df["SemanaMes"] = df["Ultima Atualizacao"].apply(lambda d: ((d.day - 1) // 7 + 1) if pd.notnull(d) else 0)
+            else:
+                df["SemanaMes"] = df["SemanaMes"].fillna(0).astype(int)
+            return df
+
+        elif self.current_period == "semestre":
+            year = now.year
+            if now.month <= 6:
+                start_date = pd.Timestamp(year, 1, 1)
+                end_date = pd.Timestamp(year, 6, 30, 23, 59, 59)
+            else:
+                start_date = pd.Timestamp(year, 7, 1)
+                end_date = pd.Timestamp(year, 12, 31, 23, 59, 59)
+            df = df[(df['Ultima Atualizacao'] >= start_date) & (df['Ultima Atualizacao'] <= end_date)].copy()
+            df["MesAbrev"] = df["Ultima Atualizacao"].dt.strftime("%b")
+            return df
+
+        elif self.current_period == "ano":
+            year = now.year
+            start_date = pd.Timestamp(year, 1, 1)
+            end_date = pd.Timestamp(year, 12, 31, 23, 59, 59)
+            df = df[(df['Ultima Atualizacao'] >= start_date) & (df['Ultima Atualizacao'] <= end_date)].copy()
+            df["MesAbrev"] = df["Ultima Atualizacao"].dt.strftime("%b")
+            return df
+
+        elif self.current_period == "custom":
+            try:
+                ms = int(self.custom_month_start.get())
+                ys = int(self.custom_year_start.get())
+                me = int(self.custom_month_end.get())
+                ye = int(self.custom_year_end.get())
+                start_date = pd.Timestamp(ys, ms, 1, 0, 0, 0)
+                days_in_end = calendar.monthrange(ye, me)[1]
+                end_date = pd.Timestamp(ye, me, days_in_end, 23, 59, 59)
+                df = df[(df['Ultima Atualizacao'] >= start_date) & (df['Ultima Atualizacao'] <= end_date)].copy()
+                granularity = self.custom_granularity.get()
+                if granularity == "mensal":
+                    df["Periodo"] = df["Ultima Atualizacao"].dt.to_period("M")
+                elif granularity == "semestral":
+                    df["Periodo"] = df["Ultima Atualizacao"].dt.to_period("6M")
+                elif granularity == "anual":
+                    df["Periodo"] = df["Ultima Atualizacao"].dt.to_period("A")
+            except:
+                messagebox.showwarning("Aviso", "Datas inválidas, exibindo tudo.")
+            return df
+        else:
+            def year_sem(dt):
+                y = dt.year
+                s = 1 if dt.month <= 6 else 2
+                return (y, s)
+            df["YearSem"] = df["Ultima Atualizacao"].apply(year_sem)
+            return df
 
     def redraw_chart(self):
         if not self.stats_window or not self.stats_window.winfo_exists():
@@ -396,66 +472,6 @@ class StatisticsManager:
         else:
             self.draw_agencias(df)
 
-    def _apply_period_filter(self, df):
-        now = pd.Timestamp.now()
-        df = df.copy()
-        if df.empty:
-            return df
-
-        if self.current_period == "mes":
-            year = now.year
-            month = now.month
-            start_date = pd.Timestamp(year, month, 1)
-            days_in_month = calendar.monthrange(year, month)[1]
-            end_date = pd.Timestamp(year, month, days_in_month, 23,59,59)
-            df = df[(df['Ultima Atualizacao'] >= start_date) & (df['Ultima Atualizacao'] <= end_date)].copy()
-            if "SemanaMes" not in df.columns:
-                df["SemanaMes"] = df["Ultima Atualizacao"].apply(lambda d: ((d.day-1)//7 + 1) if pd.notnull(d) else 0)
-            else:
-                df["SemanaMes"] = df["SemanaMes"].fillna(0).astype(int)
-            return df
-
-        elif self.current_period == "semestre":
-            year = now.year
-            if now.month<=6:
-                start_date = pd.Timestamp(year,1,1)
-                end_date   = pd.Timestamp(year,6,30,23,59,59)
-            else:
-                start_date = pd.Timestamp(year,7,1)
-                end_date   = pd.Timestamp(year,12,31,23,59,59)
-            df = df[(df['Ultima Atualizacao']>=start_date) & (df['Ultima Atualizacao']<=end_date)].copy()
-            df["MesAbrev"] = df["Ultima Atualizacao"].dt.strftime("%b")
-            return df
-
-        elif self.current_period == "ano":
-            year = now.year
-            start_date = pd.Timestamp(year,1,1)
-            end_date   = pd.Timestamp(year,12,31,23,59,59)
-            df = df[(df['Ultima Atualizacao']>=start_date) & (df['Ultima Atualizacao']<=end_date)].copy()
-            df["MesAbrev"] = df["Ultima Atualizacao"].dt.strftime("%b")
-            return df
-
-        elif self.current_period == "custom":
-            try:
-                ms = int(self.custom_month_start.get())
-                ys = int(self.custom_year_start.get())
-                me = int(self.custom_month_end.get())
-                ye = int(self.custom_year_end.get())
-                start_date = pd.Timestamp(ys, ms, 1, 0,0,0)
-                days_in_end = calendar.monthrange(ye, me)[1]
-                end_date   = pd.Timestamp(ye, me, days_in_end, 23,59,59)
-                df = df[(df['Ultima Atualizacao']>=start_date)&(df['Ultima Atualizacao']<=end_date)].copy()
-            except:
-                messagebox.showwarning("Aviso","Datas inválidas, exibindo tudo.")
-            return df
-        else:
-            def year_sem(dt):
-                y = dt.year
-                s = 1 if dt.month<=6 else 2
-                return (y, s)
-            df["YearSem"] = df["Ultima Atualizacao"].apply(year_sem)
-            return df
-
     def update_info_box(self, df):
         if df.empty:
             total_requests = 0
@@ -486,13 +502,13 @@ class StatisticsManager:
 
     def draw_barras(self, df):
         import matplotlib.cm as cm
-        self.current_figure, ax = plt.subplots(figsize=(7,5))
+        self.current_figure, ax = plt.subplots(figsize=(7, 5))
         self.current_figure.set_facecolor("#D9D9D9")
         ax.set_facecolor("#D9D9D9")
         ax.set_ylabel("Valor (R$)")
-    
+
         df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
-    
+
         if df.empty:
             ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
             ax.axis('off')
@@ -508,132 +524,157 @@ class StatisticsManager:
                     x = np.arange(len(weeks_index))
                     bottom = np.zeros(len(x))
                     motives = pivot.columns
-                    color_map = cm.get_cmap('Blues', len(motives)+1)
+                    color_map = cm.get_cmap('Blues', len(motives) + 1)
                     for i, motive in enumerate(motives[::-1]):
                         vals = pivot[motive].values
-                        c = color_map(float(i+1)/len(motives))
+                        c = color_map(float(i + 1) / len(motives))
                         ax.bar(x, vals, bottom=bottom, color=c, label=motive)
                         bottom += vals
                     for i, val in enumerate(bottom):
                         if val > 0:
-                            ax.text(x[i], val*1.01, f"{val:.2f}",
+                            ax.text(x[i], val * 1.01, f"{val:.2f}",
                                     ha='center', va='bottom', fontsize=8, color='black')
                     ax.set_xticks(x)
                     ax.set_xticklabels([f"Sem{w}" for w in weeks_index])
                     ax.legend(fontsize=8)
                     max_val = bottom.max()
-                    ax.set_ylim(0, max_val*1.2 if max_val > 0 else 1)
+                    ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
 
             elif self.current_period == "semestre":
-                # Agrupar por MesAbrev e Motivo
                 if "MesAbrev" not in df.columns:
-                    ax.text(0.5,0.5,"Sem col MesAbrev",ha='center',va='center')
+                    ax.text(0.5, 0.5, "Sem col MesAbrev", ha='center', va='center')
                     ax.axis('off')
                 else:
-                    pivot = df.groupby(["MesAbrev","Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
+                    pivot = df.groupby(["MesAbrev", "Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
                     if pivot.empty:
-                        ax.text(0.5,0.5,"Sem dados",ha='center',va='center')
+                        ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
                         ax.axis('off')
                     else:
-                        # Determinar se estamos no 1º ou 2º semestre
                         now = date.today()
                         if now.month <= 6:
-                            semester_months = ["Jan","Feb","Mar","Apr","May","Jun"]  # <<< ADIÇÃO >>>
+                            semester_months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
                         else:
-                            semester_months = ["Jul","Aug","Sep","Oct","Nov","Dec"]  # <<< ADIÇÃO >>>
-                        # Reindex para exibir todos os 6 meses
-                        pivot = pivot.reindex(semester_months, fill_value=0)  # <<< ADIÇÃO >>>
+                            semester_months = ["Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                        pivot = pivot.reindex(semester_months, fill_value=0)
                         x = np.arange(len(semester_months))
                         bottom = np.zeros(len(x))
                         motives = pivot.columns
-                        color_map = cm.get_cmap('Blues', len(motives)+1)
+                        color_map = cm.get_cmap('Blues', len(motives) + 1)
                         for i, motive in enumerate(motives[::-1]):
                             vals = pivot[motive].values
-                            c = color_map(float(i+1)/len(motives))
+                            c = color_map(float(i + 1) / len(motives))
                             ax.bar(x, vals, bottom=bottom, color=c, label=motive)
                             bottom += vals
                         for i, val in enumerate(bottom):
-                            if val>0:
-                                ax.text(i, val*1.01, f"{val:.2f}",
+                            if val > 0:
+                                ax.text(i, val * 1.01, f"{val:.2f}",
                                         ha='center', va='bottom', fontsize=8, color='black')
                         ax.set_xticks(x)
-                        ax.set_xticklabels(semester_months, rotation=45, ha='right')  # <<< ADIÇÃO >>>
+                        ax.set_xticklabels(semester_months, rotation=45, ha='right')
                         ax.legend(fontsize=8)
                         max_val = bottom.max()
-                        ax.set_ylim(0, max_val*1.2 if max_val>0 else 1)
+                        ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
 
             elif self.current_period == "ano":
-                # Agrupar por MesAbrev
                 if "MesAbrev" not in df.columns:
-                    ax.text(0.5,0.5,"Sem col MesAbrev",ha='center',va='center')
+                    ax.text(0.5, 0.5, "Sem col MesAbrev", ha='center', va='center')
                     ax.axis('off')
                 else:
-                    pivot = df.groupby(["MesAbrev","Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
+                    pivot = df.groupby(["MesAbrev", "Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
                     if pivot.empty:
-                        ax.text(0.5,0.5,"Sem dados",ha='center',va='center')
+                        ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
                         ax.axis('off')
                     else:
-                        # >>> Reindex para 12 meses <<<
-                        all_months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]  # <<< ADIÇÃO >>>
-                        pivot = pivot.reindex(all_months, fill_value=0)  # <<< ADIÇÃO >>>
+                        all_months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                        pivot = pivot.reindex(all_months, fill_value=0)
                         x = np.arange(len(all_months))
                         bottom = np.zeros(len(x))
                         motives = pivot.columns
-                        color_map = cm.get_cmap('Blues', len(motives)+1)
+                        color_map = cm.get_cmap('Blues', len(motives) + 1)
                         for i, motive in enumerate(motives[::-1]):
                             vals = pivot[motive].values
-                            c = color_map(float(i+1)/len(motives))
+                            c = color_map(float(i + 1) / len(motives))
                             ax.bar(x, vals, bottom=bottom, color=c, label=motive)
                             bottom += vals
                         for i, val in enumerate(bottom):
-                            if val>0:
-                                ax.text(i, val*1.01, f"{val:.2f}",
+                            if val > 0:
+                                ax.text(i, val * 1.01, f"{val:.2f}",
                                         ha='center', va='bottom', fontsize=8, color='black')
                         ax.set_xticks(x)
                         ax.set_xticklabels(all_months, rotation=45, ha='right')
                         ax.legend(fontsize=8)
                         max_val = bottom.max()
-                        ax.set_ylim(0, max_val*1.2 if max_val>0 else 1)
-            else:
-                # total => agrupa por YearSem
-                if "YearSem" not in df.columns:
-                    ax.text(0.5,0.5,"Sem col YearSem",ha='center',va='center')
+                        ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
+
+            elif self.current_period == "custom":
+                if "Periodo" not in df.columns:
+                    ax.text(0.5, 0.5, "Sem col Periodo", ha='center', va='center')
                     ax.axis('off')
                 else:
-                    pivot = df.groupby(["YearSem","Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
+                    pivot = df.groupby(["Periodo", "Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
                     if pivot.empty:
-                        ax.text(0.5,0.5,"Sem dados",ha='center',va='center')
+                        ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
                         ax.axis('off')
                     else:
-                        sorted_idx = sorted(pivot.index, key=lambda t: (t[0],t[1]))
+                        periods = pivot.index
+                        x = np.arange(len(periods))
+                        bottom = np.zeros(len(x))
+                        motives = pivot.columns
+                        color_map = cm.get_cmap('Blues', len(motives) + 1)
+                        for i, motive in enumerate(motives[::-1]):
+                            vals = pivot[motive].values
+                            c = color_map(float(i + 1) / len(motives))
+                            ax.bar(x, vals, bottom=bottom, color=c, label=motive)
+                            bottom += vals
+                        for i, val in enumerate(bottom):
+                            if val > 0:
+                                ax.text(i, val * 1.01, f"{val:.2f}",
+                                        ha='center', va='bottom', fontsize=8, color='black')
+                        ax.set_xticks(x)
+                        ax.set_xticklabels([str(p) for p in periods], rotation=45, ha='right')
+                        ax.legend(fontsize=8)
+                        max_val = bottom.max()
+                        ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
+
+            else:
+                if "YearSem" not in df.columns:
+                    ax.text(0.5, 0.5, "Sem col YearSem", ha='center', va='center')
+                    ax.axis('off')
+                else:
+                    pivot = df.groupby(["YearSem", "Motivo da solicitação"])["Valor"].sum().unstack(fill_value=0)
+                    if pivot.empty:
+                        ax.text(0.5, 0.5, "Sem dados", ha='center', va='center')
+                        ax.axis('off')
+                    else:
+                        sorted_idx = sorted(pivot.index, key=lambda t: (t[0], t[1]))
                         pivot = pivot.reindex(sorted_idx)
                         x = np.arange(len(pivot.index))
                         bottom = np.zeros(len(x))
                         motives = pivot.columns
-                        color_map = cm.get_cmap('Blues', len(motives)+1)
+                        color_map = cm.get_cmap('Blues', len(motives) + 1)
                         for i, motive in enumerate(motives[::-1]):
                             vals = pivot[motive].values
-                            c = color_map(float(i+1)/len(motives))
+                            c = color_map(float(i + 1) / len(motives))
                             ax.bar(x, vals, bottom=bottom, color=c, label=motive)
                             bottom += vals
                         for i, val in enumerate(bottom):
-                            if val>0:
-                                ax.text(i, val*1.01, f"{val:.2f}",
+                            if val > 0:
+                                ax.text(i, val * 1.01, f"{val:.2f}",
                                         ha='center', va='bottom', fontsize=8, color='black')
-                        labels = [f"{y}-S{s}" for (y,s) in pivot.index]
+                        labels = [f"{y}-S{s}" for (y, s) in pivot.index]
                         ax.set_xticks(x)
                         ax.set_xticklabels(labels, rotation=45, ha='right')
                         ax.legend(fontsize=8)
                         max_val = bottom.max()
-                        ax.set_ylim(0, max_val*1.2 if max_val>0 else 1)
-    
+                        ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
+
         canvas = FigureCanvasTkAgg(self.current_figure, master=self.graph_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
     def draw_motivos_side_by_side(self, df):
         import matplotlib.cm as cm
-        self.current_figure, (ax_bar, ax_pie) = plt.subplots(1,2, figsize=(8,5))
+        self.current_figure, (ax_bar, ax_pie) = plt.subplots(1, 2, figsize=(8, 5))
         self.current_figure.set_facecolor("#D9D9D9")
         ax_bar.set_facecolor("#D9D9D9")
         ax_pie.set_facecolor("#D9D9D9")
@@ -658,23 +699,23 @@ class StatisticsManager:
                 ax_pie.axis('off')
             else:
                 n = len(self.fixed_motives_order)
-                color_map = cm.get_cmap('Blues', n+1)
+                color_map = cm.get_cmap('Blues', n + 1)
                 x = np.arange(n)
                 for i, motive in enumerate(self.fixed_motives_order):
                     val = group_fixed[motive]
-                    c = color_map(float(i+1)/n)
+                    c = color_map(float(i + 1) / n)
                     ax_bar.bar(x[i], val, color=c, width=0.6)
                     if val > 0:
-                        ax_bar.text(x[i], val*1.01, f"{val:.2f}",
+                        ax_bar.text(x[i], val * 1.01, f"{val:.2f}",
                                     ha='center', va='bottom', fontsize=8)
                 ax_bar.set_xticks(x)
                 ax_bar.set_xticklabels(self.fixed_motives_order, rotation=45, ha='right')
                 ax_bar.set_title("Motivos: Barras (Pagos)")
                 maxv = group_fixed.max()
-                ax_bar.set_ylim(0, maxv*1.2 if maxv > 0 else 1)
+                ax_bar.set_ylim(0, maxv * 1.2 if maxv > 0 else 1)
     
                 values = group_fixed.values
-                colors = [color_map(float(i+1)/n) for i in range(n)]
+                colors = [color_map(float(i + 1) / n) for i in range(n)]
                 wedges, _, _ = ax_pie.pie(values, labels=None, colors=colors, autopct='%1.1f%%')
                 ax_pie.set_title("Motivos: Pizza (Pagos)")
                 ax_pie.legend(wedges, self.fixed_motives_order, fontsize=8,
@@ -687,7 +728,7 @@ class StatisticsManager:
         canvas.get_tk_widget().pack(fill="both", expand=True)
     
     def draw_acumulado(self, df):
-        self.current_figure, ax = plt.subplots(figsize=(7,5))
+        self.current_figure, ax = plt.subplots(figsize=(7, 5))
         self.current_figure.set_facecolor("#D9D9D9")
         ax.set_facecolor("#D9D9D9")
         ax.set_ylabel("Valor Acumulado (R$)")
@@ -783,7 +824,7 @@ class StatisticsManager:
     
     def draw_agencias(self, df):
         import matplotlib.cm as cm
-        self.current_figure, ax = plt.subplots(figsize=(7,5))
+        self.current_figure, ax = plt.subplots(figsize=(7, 5))
         self.current_figure.set_facecolor("#D9D9D9")
         ax.set_facecolor("#D9D9D9")
     
@@ -795,8 +836,8 @@ class StatisticsManager:
             ax.axis('off')
         else:
             n = len(agencias)
-            color_map = cm.get_cmap('Blues', n+1)
-            colors = [color_map(float(i+1)/n) for i in range(n)]
+            color_map = cm.get_cmap('Blues', n + 1)
+            colors = [color_map(float(i + 1) / n) for i in range(n)]
             wedges, _, _ = ax.pie(agencias.values, labels=None,
                                   colors=colors, autopct='%1.1f%%')
             ax.set_title("Agências")
