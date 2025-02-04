@@ -425,7 +425,7 @@ class StatisticsManager:
                 
                 # Gera todos os períodos no intervalo
                 granularity = self.custom_granularity.get()
-                date_range = pd.date_range(start_date, end_date, freq='M')
+                date_range = pd.date_range(start_date, end_date, freq='ME')  # Mudado de 'M' para 'ME'
                 
                 if granularity == "mensal":
                     all_periods = [d.strftime("%Y-%m") for d in date_range]
