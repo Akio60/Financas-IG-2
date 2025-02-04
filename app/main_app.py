@@ -1,12 +1,15 @@
+# main_app.py
+
 import os
 import json
 import pandas as pd
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
-from datetime import datetime
+from datetime import datetime, date
 from PIL import Image, ImageTk
 from tkinter import messagebox, BOTH, LEFT, Y, RIGHT, X, END
 import sys
+import calendar
 
 from constants import (
     ALL_COLUMNS_DETAIL, ALL_COLUMNS, BG_COLOR, BUTTON_BG_COLOR, FRAME_BG_COLOR,
@@ -69,7 +72,7 @@ class App:
         self.table_frame = None
         self.tree = None
 
-        # Colunas customizadas
+        # Colunas customizadas (novos filtros)
         self.custom_views = {
             "Aguardando aprovação": [
                 'Carimbo de data/hora_str',
@@ -78,26 +81,19 @@ class App:
                 'Curso:',
                 'Orientador'
             ],
-            "Pendências": [
+            "Aceitas": [  # anteriormente "Pendências" – agora "Aceitas" filtra por status "Autorizado"
+                'Carimbo de data/hora_str','Ultima Atualizacao_str', 'UltimoUsuario', 'Status', 'Nome completo (sem abreviações):',
+                'Valor', 'Curso:', 'Orientador'
+            ],
+            "Aguardando documentos": [
                 'Carimbo de data/hora_str',
-                'Status',
                 'Nome completo (sem abreviações):',
-                'Ultima Atualizacao','UltimoUsuario',
-                'Valor',
-                'Curso:',
-                'Orientador',
-                'E-mail DAC:'
+                'Ultima Atualizacao_str','UltimoUsuario',
+                'Valor'
             ],
             "Pronto para pagamento": [
-                'Carimbo de data/hora_str',
-                'Nome completo (sem abreviações):',
-                'Ultima Atualizacao','UltimoUsuario',
-                'Valor',
-                'Telefone de contato:',
-                'E-mail DAC:',
-                'Endereço completo (logradouro, número, bairro, cidade e estado)',
-                'CPF:',
-                'RG/RNE:',
+                'Carimbo de data/hora_str', 'Ultima Atualizacao_str', 'UltimoUsuario', 'Nome completo (sem abreviações):',
+                'Valor', 'Telefone de contato:',
                 'Dados bancários (banco, agência e conta) '
             ]
         }
@@ -138,7 +134,8 @@ class App:
         )
         title_label.pack(pady=20, padx=10)
 
-        # Botões do menu lateral
+        # Botões do menu lateral – nova ordem e nomenclatura:
+                # Botões do menu lateral
         self.home_button = tb.Button(
             self.left_frame,
             text="🏠",
@@ -146,22 +143,30 @@ class App:
             command=self.go_to_home
         )
         self.home_button.pack(pady=10, padx=10, fill=X)
-
-        self.empty_status_button = tb.Button(
+        
+        self.received_button = tb.Button(
             self.left_frame,
             text="Solicitações recebidas",
             bootstyle=OUTLINE,
             command=lambda: self.select_view("Aguardando aprovação")
         )
-        self.empty_status_button.pack(pady=10, padx=10, fill=X)
+        self.received_button.pack(pady=10, padx=10, fill=X)
 
-        self.pending_button = tb.Button(
+        self.accepted_button = tb.Button(
             self.left_frame,
-            text="Solicitações em andamento",
+            text="Solicitações aceitas",
             bootstyle=OUTLINE,
-            command=lambda: self.select_view("Pendências")
+            command=lambda: self.select_view("Aceitas")
         )
-        self.pending_button.pack(pady=10, padx=10, fill=X)
+        self.accepted_button.pack(pady=10, padx=10, fill=X)
+
+        self.await_docs_button = tb.Button(
+            self.left_frame,
+            text="Solicitações aguardando documentos",
+            bootstyle=OUTLINE,
+            command=lambda: self.select_view("Aguardando documentos")
+        )
+        self.await_docs_button.pack(pady=10, padx=10, fill=X)
 
         self.ready_for_payment_button = tb.Button(
             self.left_frame,
@@ -182,7 +187,6 @@ class App:
             command=self.open_settings
         )
         self.settings_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
-        # A1..A4 sem acesso a config
         if self.user_role in ["A1", "A2", "A3", "A4"]:
             self.settings_button.pack_forget()
 
@@ -207,8 +211,15 @@ class App:
             command=self.show_statistics
         )
         self.statistics_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
-        if self.user_role == "A1":
-            self.statistics_button.pack_forget()
+        
+        # Novo botão: Histórico de alterações (exibe log dividido entre ERROR e INFO)
+        self.log_history_button = tb.Button(
+            bottom_buttons_frame,
+            text="Histórico de alterações",
+            bootstyle=OUTLINE,
+            command=self.show_log_history
+        )
+        self.log_history_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
 
         self.view_all_button = tb.Button(
             bottom_buttons_frame,
@@ -241,13 +252,11 @@ class App:
         self.content_frame = tb.Frame(self.main_frame)
         self.content_frame.pack(side=LEFT, fill=BOTH, expand=True)
 
-        # Frame de boas-vindas
         self.welcome_frame = tb.Frame(self.content_frame)
         self.welcome_frame.pack(fill=BOTH, expand=True)
 
         self.setup_welcome_screen()
-
-        # O table_frame será criado SÓ quando chamarmos select_view() ou perform_search()
+   # O table_frame será criado SÓ quando chamarmos select_view() ou perform_search()
 
         self.back_button = tb.Button(
             self.content_frame,
@@ -255,7 +264,6 @@ class App:
             bootstyle=PRIMARY,
             command=self.back_to_main_view
         )
-
     def logout(self):
         sys.exit(0)
 
@@ -304,27 +312,20 @@ class App:
         self.current_view = view_name
         self.search_var.set('')
 
-        # Oculta welcome frame se estiver visível
         if self.welcome_frame.winfo_ismapped():
             self.welcome_frame.pack_forget()
 
-        # Se existe frame de estatísticas, oculta
         if self.statistics_frame and self.statistics_frame.winfo_ismapped():
             self.statistics_frame.pack_forget()
-
-        # Se existe frame de detalhes, destrói
         if self.details_frame and self.details_frame.winfo_ismapped():
             self.details_frame.pack_forget()
             self.details_frame.destroy()
             self.details_frame = None
-
-        # Se existia table_frame, destrói
         if self.table_frame:
             self.table_frame.pack_forget()
             self.table_frame.destroy()
             self.table_frame = None
 
-        # Cria ou recria a tabela e exibe
         self.update_table()
         self.update_selected_button(view_name)
 
@@ -339,7 +340,6 @@ class App:
             self.details_frame.pack_forget()
             self.details_frame.destroy()
             self.details_frame = None
-
         if self.table_frame:
             self.table_frame.pack_forget()
             self.table_frame.destroy()
@@ -348,37 +348,28 @@ class App:
         self.update_table()
 
     def update_selected_button(self, view_name):
-        if self.selected_button:
-            self.selected_button.configure(bootstyle=OUTLINE)
+        for btn in [self.received_button, self.accepted_button, self.await_docs_button, self.ready_for_payment_button]:
+            btn.configure(bootstyle=OUTLINE)
 
         if view_name == "Aguardando aprovação":
-            self.selected_button = self.empty_status_button
-        elif view_name == "Pendências":
-            self.selected_button = self.pending_button
+            self.received_button.configure(bootstyle=PRIMARY)
+        elif view_name == "Aceitas":
+            self.accepted_button.configure(bootstyle=PRIMARY)
+        elif view_name == "Aguardando documentos":
+            self.await_docs_button.configure(bootstyle=PRIMARY)
         elif view_name == "Pronto para pagamento":
-            self.selected_button = self.ready_for_payment_button
-        elif view_name == "Todos":
-            self.selected_button = self.view_all_button
-        elif view_name == "Estatísticas":
-            self.selected_button = self.statistics_button
-        else:
-            self.selected_button = None
-
-        if self.selected_button:
-            self.selected_button.configure(bootstyle=PRIMARY)
+            self.ready_for_payment_button.configure(bootstyle=PRIMARY)
 
     def go_to_home(self):
-        # Se table_frame existe, destruir
         if self.table_frame:
             self.table_frame.pack_forget()
             self.table_frame.destroy()
             self.table_frame = None
-        # Se details_frame existe, destruir
         if self.details_frame:
             self.details_frame.pack_forget()
             self.details_frame.destroy()
             self.details_frame = None
-        if self.back_button.winfo_ismapped():
+        if self.back_button and self.back_button.winfo_ismapped():
             self.back_button.pack_forget()
         if self.statistics_frame and self.statistics_frame.winfo_ismapped():
             self.statistics_frame.pack_forget()
@@ -388,27 +379,25 @@ class App:
         self.search_var.set('')
 
     def back_to_main_view(self):
-        if self.details_frame:
-            self.details_frame.pack_forget()
-            self.details_frame.destroy()
-            self.details_frame = None
+            if self.details_frame:
+                self.details_frame.pack_forget()
+                self.details_frame.destroy()
+                self.details_frame = None
 
-        if self.back_button.winfo_ismapped():
-            self.back_button.pack_forget()
+            if self.back_button.winfo_ismapped():
+                self.back_button.pack_forget()
 
-        # Se table_frame existir, destruí-lo (caso queira recriar)
-        if self.table_frame:
-            self.table_frame.pack_forget()
-            self.table_frame.destroy()
-            self.table_frame = None
+            # Se table_frame existir, destruí-lo (caso queira recriar)
+            if self.table_frame:
+                self.table_frame.pack_forget()
+                self.table_frame.destroy()
+                self.table_frame = None
 
-        # Volta para a home
-        self.go_to_home()
+            # Volta para a home
+            self.go_to_home()
+
 
     def update_table(self):
-        """
-        Cria o table_frame caso não exista, e exibe a TreeView com base no self.current_view.
-        """
         self.table_frame = tb.Frame(self.content_frame)
         self.table_frame.pack(fill=BOTH, expand=True, padx=20)
 
@@ -419,7 +408,6 @@ class App:
         )
         table_title_label.pack(pady=10)
 
-        # Estilo para rowheight 20% maior e fonte +1
         style = tb.Style()
         default_row_height = style.lookup("Treeview", "rowheight", default=20)
         new_row_height = 40
@@ -436,7 +424,6 @@ class App:
         self.tree.tag_configure('oddrow', background='#f0f8ff')
         self.tree.tag_configure('evenrow', background='#ffffff')
 
-        # Determinar colunas a exibir
         if self.current_view in self.custom_views:
             self.columns_to_display = self.custom_views[self.current_view]
         else:
@@ -453,22 +440,15 @@ class App:
                     'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
                     'Telefone de contato:'
                 ]
-            elif self.current_view == "Pendências":
-                self.columns_to_display = [
-                    'Carimbo de data/hora_str','Ultima Atualizacao', 'UltimoUsuario', 'Status', 'Nome completo (sem abreviações):',
-                    'Valor', 'Curso:', 'Orientador'
-                ]
-            elif self.current_view == "Pronto para pagamento":
-                self.columns_to_display = [
-                    'Carimbo de data/hora_str', 'Ultima Atualizacao', 'UltimoUsuario', 'Nome completo (sem abreviações):',
-                    'Valor', 'Telefone de contato:',
-                    'Dados bancários (banco, agência e conta) '
-                ]
-            else:
-                # "Todos" ou "Search"
+            elif self.current_view == "Search":
                 self.columns_to_display = [
                     'Carimbo de data/hora_str', 'Nome completo (sem abreviações):',
-                    'Ultima Atualizacao','UltimoUsuario', 'Valor', 'Status'
+                    'Ultima Atualizacao_str','UltimoUsuario', 'Valor', 'Status'
+                ]
+            else:
+                self.columns_to_display = [
+                    'Carimbo de data/hora_str', 'Nome completo (sem abreviações):',
+                    'Ultima Atualizacao_str','UltimoUsuario', 'Valor', 'Status'
                 ]
 
         self.tree["columns"] = self.columns_to_display
@@ -481,7 +461,6 @@ class App:
             )
             self.tree.column(col, anchor="center", width=150)
 
-        # Recarregar data
         self.data = self.sheets_handler.load_data()
         self.data['Carimbo de data/hora'] = pd.to_datetime(
             self.data['Carimbo de data/hora'],
@@ -489,14 +468,22 @@ class App:
             errors='coerce'
         )
         self.data['Carimbo de data/hora_str'] = self.data['Carimbo de data/hora'].dt.strftime('%d/%m/%Y')
+        # Formata a coluna "Ultima Atualizacao" da mesma forma que "Carimbo de data/hora"
+        self.data['Ultima Atualizacao'] = pd.to_datetime(
+            self.data['Ultima Atualizacao'],
+            format='%d/%m/%Y %H:%M:%S',
+            errors='coerce'
+        )
+        self.data['Ultima Atualizacao_str'] = self.data['Ultima Atualizacao'].dt.strftime('%d/%m/%Y')
 
-        # Filtrar
         if self.current_view == "Search":
             data_filtered = self.data.copy()
-        elif self.current_view == "Pendências":
-            data_filtered = self.data[self.data['Status'].isin(['Autorizado', 'Aguardando documentação'])]
         elif self.current_view == "Aguardando aprovação":
             data_filtered = self.data[self.data['Status'] == '']
+        elif self.current_view == "Aceitas":
+            data_filtered = self.data[self.data['Status'] == 'Autorizado']
+        elif self.current_view == "Aguardando documentos":
+            data_filtered = self.data[self.data['Status'] == 'Aguardando documentação']
         elif self.current_view == "Pronto para pagamento":
             data_filtered = self.data[self.data['Status'] == 'Pronto para pagamento']
         else:
@@ -537,6 +524,8 @@ class App:
             )
 
     def treeview_sort_column(self, tv, col, reverse):
+        self.sorted_column = col
+        self.sort_reverse = reverse
         data_list = [(tv.set(k, col), k) for k in tv.get_children('')]
         try:
             data_list.sort(key=lambda t: datetime.strptime(t[0], '%d/%m/%Y'), reverse=reverse)
@@ -547,10 +536,12 @@ class App:
                 data_list.sort(reverse=reverse)
         for index, (val, k) in enumerate(data_list):
             tv.move(k, '', index)
-        tv.heading(col, command=lambda: self.treeview_sort_column(tv, col, not reverse))
+        arrow = "▲" if reverse else "▼"
+        display_name = self.column_display_names.get(col, col)
+        new_text = f"{display_name} {arrow}"
+        tv.heading(col, text=new_text, command=lambda: self.treeview_sort_column(tv, col, not reverse))
 
     def on_treeview_click(self, event):
-        # A1 não acessa detalhes
         if self.user_role == "A1":
             messagebox.showinfo("Aviso", "Você (A1) não tem acesso aos detalhes.")
             return
@@ -569,3 +560,45 @@ class App:
             messagebox.showinfo("Aviso", "Acesso restrito ao admin (A5).")
             return
         self.settings_manager.open_settings()
+
+    def show_log_history(self):
+        log_path = os.path.join(os.getcwd(), 'app.log')
+        if not os.path.exists(log_path):
+            messagebox.showinfo("Histórico de Alterações", "Nenhum log encontrado.")
+            return
+
+        # Abre o arquivo com erros de decodificação substituídos
+        with open(log_path, 'r', encoding='utf-8', errors="replace") as f:
+            log_lines = f.readlines()
+
+        # Filtra as linhas com [ERROR] e [INFO]
+        error_lines = [line for line in log_lines if "[ERROR]" in line]
+        info_lines = [line for line in log_lines if "[INFO]" in line]
+
+        log_window = tb.Toplevel(self.root)
+        log_window.title("Histórico de Alterações")
+        log_window.geometry("800x600")
+
+        # Cria um frame principal com padding
+        main_frame = tb.Frame(log_window, padding=20)
+        main_frame.pack(fill=BOTH, expand=True)
+
+        # Cria dois frames lado a lado
+        left_frame = tb.Frame(main_frame)
+        left_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=10)
+        right_frame = tb.Frame(main_frame)
+        right_frame.pack(side=RIGHT, fill=BOTH, expand=True, padx=10)
+
+        error_label = tb.Label(left_frame, text="[ERROR]", font=("Helvetica", 12, "bold"))
+        error_label.pack(anchor="w")
+        error_text = tb.ScrolledText(left_frame, width=40, height=30)
+        error_text.pack(fill=BOTH, expand=True)
+        error_text.insert('1.0', "".join(error_lines))
+        error_text.configure(state='disabled')
+
+        info_label = tb.Label(right_frame, text="[INFO]", font=("Helvetica", 12, "bold"))
+        info_label.pack(anchor="w")
+        info_text = tb.ScrolledText(right_frame, width=40, height=30)
+        info_text.pack(fill=BOTH, expand=True)
+        info_text.insert('1.0', "".join(info_lines))
+        info_text.configure(state='disabled')

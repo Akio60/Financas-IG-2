@@ -1,3 +1,5 @@
+# email_sender.py
+
 import os
 import smtplib
 import threading
@@ -12,17 +14,21 @@ class EmailSender:
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
         self.sender_email = sender_email
-        self.sender_password = os.getenv(EMAIL_PASSWORD_ENV)
+        self.sender_password = EMAIL_PASSWORD_ENV
 
     def send_email(self, recipient, subject, body):
         """
-        Envio em thread para não travar a UI (#6).
+        Envio em thread para não travar a UI.
         """
         thread = threading.Thread(target=self._send_email_thread, args=(recipient, subject, body))
         thread.start()
 
     def _send_email_thread(self, recipient, subject, body):
         try:
+            # Verifica se a senha foi configurada; se não, gera um erro.
+            if not self.sender_password:
+                raise ValueError("Senha do remetente não configurada. Verifique a variável de ambiente.")
+
             msg = MIMEMultipart()
             msg['From'] = self.sender_email
             msg['To'] = recipient

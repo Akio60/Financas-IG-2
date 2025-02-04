@@ -1,3 +1,5 @@
+# settings_manager.py
+
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 import tkinter as tk
@@ -9,6 +11,7 @@ BTN_WIDTH = 35
 
 USERS_DB_FILE = "users_db.json"
 NOTIFICATION_CARGOS_FILE = "notification_cargos.json"
+TABLE_COLORS_FILE = "table_colors.json"
 
 def load_users_db():
     if os.path.exists(USERS_DB_FILE):
@@ -35,6 +38,22 @@ def load_notification_cargos():
 def save_notification_cargos(cfg):
     with open(NOTIFICATION_CARGOS_FILE, 'w', encoding='utf-8') as f:
         json.dump(cfg, f, indent=4, ensure_ascii=False)
+
+def load_table_colors():
+    if os.path.exists(TABLE_COLORS_FILE):
+        with open(TABLE_COLORS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {
+        "background": "#ffffff",
+        "foreground": "#000000",
+        "oddrow": "#f0f8ff",
+        "evenrow": "#ffffff",
+        "selected": "#d3d3d3"
+    }
+
+def save_table_colors(colors):
+    with open(TABLE_COLORS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(colors, f, indent=4, ensure_ascii=False)
 
 class SettingsManager:
     def __init__(self, app):
@@ -98,8 +117,17 @@ class SettingsManager:
                 command=self.setup_notification_cargos
             )
             notif_btn.grid(row=3, column=0, sticky='w', pady=10)
+            
+            color_btn = tb.Button(
+                col1,
+                text="Gerir Cores das Tabelas",
+                bootstyle=INFO,
+                width=BTN_WIDTH,
+                command=self.manage_table_colors
+            )
+            color_btn.grid(row=4, column=0, sticky='w', pady=10)
 
-        row_start_col = 4
+        row_start_col = 5
         columns_label = tb.Label(col1, text="Definição de Colunas", font=("Helvetica", 10, "bold"))
         columns_label.grid(row=row_start_col, column=0, sticky='w', pady=(15,5))
         row_start_col += 1
@@ -114,7 +142,7 @@ class SettingsManager:
 
         views = [
             ("Aguardando aprovação", "Aguardando aprovação"),
-            ("Pendências", "Pendências"),
+            ("Aceitas", "Aceitas"),
             ("Pronto para pagamento", "Pronto para pagamento")
         ]
         row_index = row_start_col
@@ -147,140 +175,40 @@ class SettingsManager:
 
         row_index2 = 2
         for motivo in self.app.email_templates.keys():
-            button = tb.Button(
-                col2,
-                text=motivo,
-                bootstyle=SECONDARY,
-                width=BTN_WIDTH,
-                command=lambda m=motivo: self.edit_email_template(m)
-            )
+            button = tb.Button(col2, text=motivo, bootstyle=SECONDARY, width=BTN_WIDTH, command=lambda m=motivo: self.edit_email_template(m))
             button.grid(row=row_index2, column=0, sticky='w', pady=5)
             row_index2 += 1
 
         col2.rowconfigure(row_index2, weight=1)
 
-    def user_management(self):
-        um_window = tb.Toplevel(self.app.root)
-        um_window.title("Gerenciar Usuários")
-        um_window.geometry("500x400")
+    def manage_table_colors(self):
+        colors = load_table_colors()
+        color_win = tb.Toplevel(self.app.root)
+        color_win.title("Gerenciar Cores das Tabelas")
+        color_win.geometry("400x300")
 
-        db_users = load_users_db()
+        lbl = tb.Label(color_win, text="Defina as cores para a exibição das tabelas:", font=("Helvetica", 10, "bold"))
+        lbl.pack(pady=10)
 
-        tk.Label(um_window, text="Usuários Cadastrados:", font=("Helvetica", 12, "bold")).pack(pady=5)
+        frame = tb.Frame(color_win)
+        frame.pack(pady=10)
 
-        listbox = tk.Listbox(um_window)
-        listbox.pack(fill="both", expand=True, padx=10, pady=5)
+        entries = {}
+        for i, key in enumerate(["background", "foreground", "oddrow", "evenrow", "selected"]):
+            tk.Label(frame, text=key.capitalize() + ":").grid(row=i, column=0, sticky='e', padx=5, pady=5)
+            var = tk.StringVar(value=colors.get(key, ""))
+            entry = tk.Entry(frame, textvariable=var, width=20)
+            entry.grid(row=i, column=1, padx=5, pady=5)
+            entries[key] = var
 
-        def refresh_users():
-            listbox.delete(0, 'end')
-            for u in db_users.keys():
-                r = db_users[u]["role"]
-                e = db_users[u]["email"]
-                listbox.insert('end', f"{u} | Cargo: {r} | Email: {e}")
+        def save_colors():
+            new_colors = {key: var.get().strip() for key, var in entries.items()}
+            save_table_colors(new_colors)
+            messagebox.showinfo("Sucesso", "Cores atualizadas. Reinicie o aplicativo para ver as mudanças.")
+            color_win.destroy()
 
-        refresh_users()
-
-        btn_frame = tk.Frame(um_window)
-        btn_frame.pack(pady=5)
-
-        def add_user():
-            addw = tb.Toplevel(um_window)
-            addw.title("Adicionar Usuário")
-            addw.geometry("300x250")
-
-            tk.Label(addw, text="Login:").pack(pady=5)
-            login_var = tk.StringVar()
-            login_entry = tk.Entry(addw, textvariable=login_var)
-            login_entry.pack()
-
-            tk.Label(addw, text="Senha:").pack(pady=5)
-            pass_var = tk.StringVar()
-            pass_entry = tk.Entry(addw, textvariable=pass_var)
-            pass_entry.pack()
-
-            tk.Label(addw, text="Cargo (A1..A5):").pack(pady=5)
-            role_var = tk.StringVar(value="A1")
-            role_entry = tk.Entry(addw, textvariable=role_var)
-            role_entry.pack()
-
-            tk.Label(addw, text="Email:").pack(pady=5)
-            email_var = tk.StringVar()
-            email_entry = tk.Entry(addw, textvariable=email_var)
-            email_entry.pack()
-
-            def confirm_add():
-                user = login_var.get().strip()
-                pwd = pass_var.get().strip()
-                r = role_var.get().strip()
-                em = email_var.get().strip()
-                if not user or not pwd or not r or not em:
-                    messagebox.showwarning("Aviso", "Preencha todos os campos!")
-                    return
-                if user in db_users:
-                    messagebox.showwarning("Aviso", "Usuário já existe.")
-                    return
-                db_users[user] = {"password": pwd, "role": r, "email": em}
-                save_users_db(db_users)
-                refresh_users()
-                addw.destroy()
-
-            tb.Button(addw, text="Adicionar", bootstyle=SUCCESS, command=confirm_add).pack(pady=10)
-
-        def remove_user():
-            sel = listbox.curselection()
-            if not sel:
-                return
-            idx = sel[0]
-            line = listbox.get(idx)
-            user_name = line.split("|")[0].strip()
-            if user_name in db_users:
-                confirm = messagebox.askyesno("Confirmar", f"Remover usuário '{user_name}'?")
-                if confirm:
-                    db_users.pop(user_name)
-                    save_users_db(db_users)
-                    refresh_users()
-
-        add_btn = tb.Button(btn_frame, text="Adicionar Usuário", bootstyle=SUCCESS, command=add_user)
-        add_btn.pack(side=LEFT, padx=5)
-
-        rem_btn = tb.Button(btn_frame, text="Remover Usuário", bootstyle=DANGER, command=remove_user)
-        rem_btn.pack(side=LEFT, padx=5)
-
-    def setup_notification_cargos(self):
-        cfg_window = tb.Toplevel(self.app.root)
-        cfg_window.title("Configurar Cargo de Notificação")
-        cfg_window.geometry("400x300")
-
-        lbl = tb.Label(cfg_window, text="Defina qual cargo receberá notificação para cada evento:", font=("Helvetica", 10, "bold"))
-        lbl.pack(pady=5)
-
-        notif_cfg = load_notification_cargos()
-
-        frame_events = tb.Frame(cfg_window)
-        frame_events.pack(fill="both", expand=True, padx=10, pady=10)
-
-        events = ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Autorizado"]
-        var_dict = {}
-
-        row_idx = 0
-        for ev in events:
-            tb.Label(frame_events, text=ev).grid(row=row_idx, column=0, sticky='w', padx=5, pady=5)
-            import tkinter as tki
-            var = tki.StringVar(value=notif_cfg.get(ev, "A1"))
-            var_dict[ev] = var
-            entry = tki.Entry(frame_events, textvariable=var, width=5)
-            entry.grid(row=row_idx, column=1, sticky='w', padx=5, pady=5)
-            row_idx += 1
-
-        def save_notif():
-            for ev in events:
-                val = var_dict[ev].get().strip()
-                notif_cfg[ev] = val
-            save_notification_cargos(notif_cfg)
-            messagebox.showinfo("OK", "Notificação configurada.")
-            cfg_window.destroy()
-
-        tb.Button(cfg_window, text="Salvar", bootstyle=SUCCESS, command=save_notif).pack(pady=5)
+        save_btn = tb.Button(color_win, text="Salvar Cores", bootstyle=SUCCESS, width=BTN_WIDTH, command=save_colors)
+        save_btn.pack(pady=10)
 
     def open_column_selector(self, view_name):
         sel_window = tb.Toplevel(self.app.root)
@@ -439,13 +367,10 @@ class SettingsManager:
         for key, val in field_map.items():
             tk_label = tb.Label(scroll_frame, text=key, width=40, anchor='w')
             tk_label.grid(row=row_idx, column=0, padx=5, pady=5, sticky='w')
-
-            import tkinter as tki
-            var = tki.StringVar(value=val)
+            var = tk.StringVar(value=val)
             self.entry_vars[key] = var
-            tk_entry = tki.Entry(scroll_frame, textvariable=var, width=40)
+            tk_entry = tk.Entry(scroll_frame, textvariable=var, width=40)
             tk_entry.grid(row=row_idx, column=1, padx=5, pady=5, sticky='w')
-
             row_idx += 1
 
         def save_masks():
@@ -477,3 +402,126 @@ class SettingsManager:
 
         save_button = tb.Button(template_window, text="Salvar", bootstyle=SUCCESS, width=BTN_WIDTH, command=save_template)
         save_button.pack(pady=10)
+
+    def user_management(self):
+        um_window = tb.Toplevel(self.app.root)
+        um_window.title("Gerenciar Usuários")
+        um_window.geometry("500x400")
+
+        db_users = load_users_db()
+
+        tk.Label(um_window, text="Usuários Cadastrados:", font=("Helvetica", 12, "bold")).pack(pady=5)
+
+        listbox = tk.Listbox(um_window)
+        listbox.pack(fill="both", expand=True, padx=10, pady=5)
+
+        def refresh_users():
+            listbox.delete(0, 'end')
+            for u in db_users.keys():
+                r = db_users[u]["role"]
+                e = db_users[u]["email"]
+                listbox.insert('end', f"{u} | Cargo: {r} | Email: {e}")
+
+        refresh_users()
+
+        btn_frame = tk.Frame(um_window)
+        btn_frame.pack(pady=5)
+
+        def add_user():
+            addw = tb.Toplevel(um_window)
+            addw.title("Adicionar Usuário")
+            addw.geometry("300x250")
+
+            tk.Label(addw, text="Login:").pack(pady=5)
+            login_var = tk.StringVar()
+            login_entry = tk.Entry(addw, textvariable=login_var)
+            login_entry.pack()
+
+            tk.Label(addw, text="Senha:").pack(pady=5)
+            pass_var = tk.StringVar()
+            pass_entry = tk.Entry(addw, textvariable=pass_var)
+            pass_entry.pack()
+
+            tk.Label(addw, text="Cargo (A1..A5):").pack(pady=5)
+            role_var = tk.StringVar(value="A1")
+            role_entry = tk.Entry(addw, textvariable=role_var)
+            role_entry.pack()
+
+            tk.Label(addw, text="Email:").pack(pady=5)
+            email_var = tk.StringVar()
+            email_entry = tk.Entry(addw, textvariable=email_var)
+            email_entry.pack()
+
+            def confirm_add():
+                user = login_var.get().strip()
+                pwd = pass_var.get().strip()
+                r = role_var.get().strip()
+                em = email_var.get().strip()
+                if not user or not pwd or not r or not em:
+                    messagebox.showwarning("Aviso", "Preencha todos os campos!")
+                    return
+                if user in db_users:
+                    messagebox.showwarning("Aviso", "Usuário já existe.")
+                    return
+                db_users[user] = {"password": pwd, "role": r, "email": em}
+                save_users_db(db_users)
+                refresh_users()
+                addw.destroy()
+
+            tb.Button(addw, text="Adicionar", bootstyle=SUCCESS, command=confirm_add).pack(pady=10)
+
+        def remove_user():
+            sel = listbox.curselection()
+            if not sel:
+                return
+            idx = sel[0]
+            line = listbox.get(idx)
+            user_name = line.split("|")[0].strip()
+            if user_name in db_users:
+                confirm = messagebox.askyesno("Confirmar", f"Remover usuário '{user_name}'?")
+                if confirm:
+                    db_users.pop(user_name)
+                    save_users_db(db_users)
+                    refresh_users()
+
+        add_btn = tb.Button(btn_frame, text="Adicionar Usuário", bootstyle=SUCCESS, command=add_user)
+        add_btn.pack(side=LEFT, padx=5)
+
+        rem_btn = tb.Button(btn_frame, text="Remover Usuário", bootstyle=DANGER, command=remove_user)
+        rem_btn.pack(side=LEFT, padx=5)
+
+    def setup_notification_cargos(self):
+        cfg_window = tb.Toplevel(self.app.root)
+        cfg_window.title("Configurar Cargo de Notificação")
+        cfg_window.geometry("400x300")
+
+        lbl = tb.Label(cfg_window, text="Defina qual cargo receberá notificação para cada evento:", font=("Helvetica", 10, "bold"))
+        lbl.pack(pady=5)
+
+        notif_cfg = load_notification_cargos()
+
+        frame_events = tb.Frame(cfg_window)
+        frame_events.pack(fill="both", expand=True, padx=10, pady=10)
+
+        events = ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Autorizado"]
+        var_dict = {}
+
+        row_idx = 0
+        for ev in events:
+            tb.Label(frame_events, text=ev).grid(row=row_idx, column=0, sticky='w', padx=5, pady=5)
+            import tkinter as tki
+            var = tki.StringVar(value=notif_cfg.get(ev, "A1"))
+            var_dict[ev] = var
+            entry = tki.Entry(frame_events, textvariable=var, width=5)
+            entry.grid(row=row_idx, column=1, sticky='w', padx=5, pady=5)
+            row_idx += 1
+
+        def save_notif():
+            for ev in events:
+                val = var_dict[ev].get().strip()
+                notif_cfg[ev] = val
+            save_notification_cargos(notif_cfg)
+            messagebox.showinfo("OK", "Notificação configurada.")
+            cfg_window.destroy()
+
+        tb.Button(cfg_window, text="Salvar", bootstyle=SUCCESS, command=save_notif).pack(pady=5)

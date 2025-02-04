@@ -1,9 +1,12 @@
+# details_manager.py
+
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
-from tkinter import Text, messagebox
+from tkinter import Text, messagebox, BOTH
 from datetime import datetime
 import json
 import os
+import uuid
 
 NOTIFICATION_CARGOS_FILE = "notification_cargos.json"
 USERS_DB_FILE = "users_db.json"
@@ -55,10 +58,12 @@ class DetailsManager:
             messagebox.showinfo("Aviso", "Cargo A1 não acessa detalhes.")
             return
 
-        self.app.table_frame.pack_forget()
+        # Oculta o frame da tabela principal, se existir
+        if self.app.table_frame and self.app.table_frame.winfo_exists():
+            self.app.table_frame.pack_forget()
 
         self.app.details_frame = tb.Frame(self.app.content_frame)
-        self.app.details_frame.pack(fill="both", expand=True)
+        self.app.details_frame.pack(fill=BOTH, expand=True)
 
         self.app.details_title_label = tb.Label(
             self.app.details_frame, text="Controle de Orçamento IG - PPG UNICAMP",
@@ -67,7 +72,7 @@ class DetailsManager:
         self.app.details_title_label.pack(pady=10)
 
         notebook = tb.Notebook(self.app.details_frame, bootstyle=PRIMARY)
-        notebook.pack(fill="both", expand=True)
+        notebook.pack(fill=BOTH, expand=True)
 
         sections = {
             "Informações Pessoais": [
@@ -94,7 +99,7 @@ class DetailsManager:
                 'Descrever detalhadamente os itens a serem financiados. Por ex: inscrição em evento, diárias ...',
             ],
             "Informações Financeiras": [
-                'Valor solicitado. Somente valor, sem pontos e vírgula'
+                'Valor solicitado. Somente valor, sem pontos e vírgula',
                 'Valor',
                 'Dados bancários (banco, agência e conta) ',
             ],
@@ -118,54 +123,95 @@ class DetailsManager:
                     value.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
                     row_idx += 1
 
-            # Se for Informações Financeiras e status == '' => A3 ou A5 podem autorizar...
-            if section_name == "Informações Financeiras" and row_data['Status'] == '':
-                if self.app.user_role in ["A3", "A5"]:
-                    value_label = tb.Label(tab_frame, text="Valor (R$):", font=("Helvetica", 12, "bold"))
-                    value_label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
-                    value_entry = tb.Entry(tab_frame, width=50)
-                    value_entry.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
-                    self.app.value_entry = value_entry
+            if section_name == "Informações Financeiras":
+                if row_data['Status'] == '':
+                    if self.app.user_role in ["A3", "A5"]:
+                        value_label = tb.Label(tab_frame, text="Valor (R$):", font=("Helvetica", 12, "bold"))
+                        value_label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
+                        value_entry = tb.Entry(tab_frame, width=50)
+                        value_entry.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
+                        self.app.value_entry = value_entry
+                        row_idx += 1
 
-                    row_idx += 1
-
-                    def autorizar_auxilio():
-                        new_value = value_entry.get().strip()
-                        if not new_value:
-                            messagebox.showwarning("Aviso", "Insira um valor antes.")
-                            return
-                        new_status = 'Autorizado'
-                        ts_str = row_data['Carimbo de data/hora']
-                        self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
-                        self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name)
-                        self.notify_next_responsible("Autorizado", row_data)
-                        self.ask_send_email(row_data, new_status, new_value)
-                        self.app.update_table()
-                        self.app.back_to_main_view()
-
-                    def negar_auxilio():
-                        confirm = messagebox.askyesno("Confirmação", "Tem certeza que deseja recusar/cancelar o auxílio?")
-                        if confirm:
-                            new_status = 'Cancelado'
+                        def autorizar_auxilio():
+                            new_value = value_entry.get().strip()
+                            if not new_value:
+                                messagebox.showwarning("Aviso", "Insira um valor antes.")
+                                return
+                            new_status = 'Autorizado'
                             ts_str = row_data['Carimbo de data/hora']
+                            # Verifica se o campo "Id" está vazio; se sim, gera um UUID único
+                            if not row_data.get("Id"):
+                                unique_id = str(uuid.uuid4())
+                                self.app.sheets_handler.update_cell(ts_str, "Id", unique_id)
                             self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
-                            self.notify_next_responsible("Cancelado", row_data)
-                            self.ask_send_email(row_data, new_status)
+                            self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name)
+                            self.notify_next_responsible("Autorizado", row_data)
+                            self.ask_send_email(row_data, new_status, new_value)
                             self.app.update_table()
-                            self.app.back_to_main_view()
+                            self.app.go_to_home()
 
-                    autorizar_button = tb.Button(tab_frame, text="Autorizar Auxílio", bootstyle=SUCCESS, command=autorizar_auxilio)
-                    negar_button = tb.Button(tab_frame, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=negar_auxilio)
-                    autorizar_button.grid(row=row_idx, column=0, padx=10, pady=10, sticky='w')
-                    negar_button.grid(row=row_idx, column=1, padx=10, pady=10, sticky='w')
+                        def negar_auxilio():
+                            confirm = messagebox.askyesno("Confirmação", "Tem certeza que deseja recusar/cancelar o auxílio?")
+                            if confirm:
+                                new_status = 'Cancelado'
+                                ts_str = row_data['Carimbo de data/hora']
+                                self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
+                                self.notify_next_responsible("Cancelado", row_data)
+                                self.ask_send_email(row_data, new_status)
+                                self.app.update_table()
+                                self.app.go_to_home()
 
-        self.add_history_tab(notebook, row_data)
+                        autorizar_button = tb.Button(tab_frame, text="Autorizar Auxílio", bootstyle=SUCCESS, command=autorizar_auxilio)
+                        negar_button = tb.Button(tab_frame, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=negar_auxilio)
+                        autorizar_button.grid(row=row_idx, column=0, padx=10, pady=10, sticky='w')
+                        negar_button.grid(row=row_idx, column=1, padx=10, pady=10, sticky='w')
+                        row_idx += 1
 
-        # Se cargo em [A3, A4, A5], exibe aba de ações
-        if self.app.user_role in ["A3", "A4", "A5"]:
+                # Histórico de Solicitações – ajuste de espaçamento
+                history_label = tb.Label(tab_frame, text="Histórico de Solicitações", font=("Helvetica", 12, "bold"))
+                history_label.grid(row=row_idx, column=0, columnspan=2, sticky='w', padx=20, pady=(10,5))
+                row_idx += 1
+                history_frame = tb.Frame(tab_frame, padding=(20,10))
+                history_frame.grid(row=row_idx, column=0, columnspan=2, sticky='nsew', padx=20, pady=(5,20))
+                tab_frame.rowconfigure(row_idx, weight=1)
+
+                history_columns = ['Carimbo de data/hora', 'Ultima Atualizacao', 'Valor', 'Status']
+                history_tree = tb.Treeview(history_frame, columns=history_columns, show='headings', height=10)
+                history_tree.pack(fill=BOTH, expand=True)
+
+                for col in history_columns:
+                    history_tree.heading(
+                        col, text=col,
+                        command=lambda _col=col: self.app.treeview_sort_column(history_tree, _col, False)
+                    )
+                    history_tree.column(col, anchor='center', width=120)
+
+                all_data = self.app.sheets_handler.load_data()
+                cpf = str(row_data.get('CPF:', '')).strip()
+                all_data['CPF:'] = all_data['CPF:'].astype(str).str.strip()
+                history_data = all_data[all_data['CPF:'] == cpf]
+                # Armazena os dados históricos para uso no clique duplo
+                self.app.history_tree_data = history_data.copy()
+
+                for idx, hist_row in history_data.iterrows():
+                    values = [hist_row.get(c, "") for c in history_columns]
+                    history_tree.insert("", "end", iid=str(idx), values=values)
+                history_tree.bind("<Double-1>", self.on_history_treeview_click)
+                row_idx += 1
+
+        if self.app.user_role in ["A3", "A4", "A5"] and self.app.current_view != "Aguardando aprovação":
             self.add_actions_tab(notebook, row_data)
 
-        self.app.back_button.pack(side='bottom', pady=20)
+        back_button = tb.Button(self.app.details_frame, text="Voltar", bootstyle=PRIMARY, command=self.app.go_to_home)
+        back_button.pack(side='bottom', pady=20)
+
+    def on_history_treeview_click(self, event):
+        selected_item = event.widget.selection()
+        if selected_item:
+            item_iid = selected_item[0]
+            selected_row = self.app.history_tree_data.loc[int(item_iid)]
+            self.show_details_in_new_window(selected_row)
 
     def notify_next_responsible(self, event_key, row_data):
         notif_cfg = load_notification_cargos()
@@ -192,41 +238,13 @@ class DetailsManager:
             if r:
                 self.app.email_sender.send_email(r, subject, body)
 
-    def add_history_tab(self, notebook, row_data):
-        history_tab = tb.Frame(notebook)
-        notebook.add(history_tab, text="Histórico de Solicitações")
-
-        cpf = str(row_data.get('CPF:', '')).strip()
-        all_data = self.app.sheets_handler.load_data()
-        all_data['CPF:'] = all_data['CPF:'].astype(str).str.strip()
-        history_data = all_data[all_data['CPF:'] == cpf]
-
-        history_columns = ['Carimbo de data/hora', 'Ultima Atualizacao', 'Valor', 'Status']
-        history_tree = tb.Treeview(history_tab, columns=history_columns, show='headings', height=10)
-        history_tree.pack(fill="both", expand=True)
-
-        for col in history_columns:
-            history_tree.heading(
-                col, text=col,
-                command=lambda _col=col: self.app.treeview_sort_column(history_tree, _col, False)
-            )
-            history_tree.column(col, anchor='center', width=120)
-
-        self.app.history_tree_data = history_data.copy()
-
-        for idx, hist_row in history_data.iterrows():
-            values = [hist_row.get(c, "") for c in history_columns]
-            history_tree.insert("", "end", iid=str(idx), values=values)
-
-        history_tree.bind("<Double-1>", self.on_history_treeview_click)
-
     def add_actions_tab(self, notebook, row_data):
         view = self.app.current_view
         role = self.app.user_role
         actions_tab = tb.Frame(notebook)
         notebook.add(actions_tab, text="Ações")
 
-        if view == "Pendências":
+        if view == "Aceitas":
             def request_documents():
                 if role not in ["A3", "A5"]:
                     messagebox.showwarning("Permissão Negada", "Apenas A3 ou A5.")
@@ -241,7 +259,37 @@ class DetailsManager:
                 body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
                 self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
                 self.app.update_table()
-                self.app.back_to_main_view()
+                self.app.go_to_home()
+                
+            def cancel_auxilio():
+                if role not in ["A3", "A5"]:
+                    messagebox.showwarning("Negado", "Somente A3 ou A5 podem cancelar.")
+                    return
+                confirm = messagebox.askyesno("Confirmar", "Tem certeza que deseja recusar/cancelar o auxílio?")
+                if confirm:
+                    new_status = 'Cancelado'
+                    ts_str = row_data['Carimbo de data/hora']
+                    self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
+
+                    subject = "Auxílio Cancelado"
+                    body = (
+                        f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
+                        f"Seu auxílio foi cancelado.\n\n"
+                        f"Atenciosamente,\nEquipe Financeira"
+                    )
+                    self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
+                    self.app.update_table()
+                    self.app.go_to_home()
+                    
+                    
+
+            req_btn = tb.Button(actions_tab, text="Requerir Documentos", bootstyle=WARNING, command=request_documents)
+            req_btn.pack(pady=10)
+
+            cancel_btn = tb.Button(actions_tab, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=cancel_auxilio)
+            cancel_btn.pack(pady=10)
+        
+        elif view == "Aguardando documentos":
 
             def authorize_payment():
                 if role not in ["A3", "A5"]:
@@ -257,7 +305,7 @@ class DetailsManager:
                 body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
                 self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
                 self.app.update_table()
-                self.app.back_to_main_view()
+                self.app.go_to_home()
 
             def cancel_auxilio():
                 if role not in ["A3", "A5"]:
@@ -277,10 +325,7 @@ class DetailsManager:
                     )
                     self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
                     self.app.update_table()
-                    self.app.back_to_main_view()
-
-            req_btn = tb.Button(actions_tab, text="Requerir Documentos", bootstyle=WARNING, command=request_documents)
-            req_btn.pack(pady=10)
+                    self.app.go_to_home()
 
             auth_btn = tb.Button(actions_tab, text="Autorizar Pagamento", bootstyle=SUCCESS, command=authorize_payment)
             auth_btn.pack(pady=10)
@@ -329,13 +374,6 @@ class DetailsManager:
 
             cancel_btn = tb.Button(actions_tab, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=cancel_auxilio)
             cancel_btn.pack(pady=10)
-
-    def on_history_treeview_click(self, event):
-        selected_item = event.widget.selection()
-        if selected_item:
-            item_iid = selected_item[0]
-            selected_row = self.app.history_tree_data.loc[int(item_iid)]
-            self.show_details_in_new_window(selected_row)
 
     def show_details_in_new_window(self, row_data):
         detail_window = tb.Toplevel(self.app.root)
