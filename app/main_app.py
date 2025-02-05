@@ -33,6 +33,9 @@ class App:
         # Carrega DF
         self.data = self.sheets_handler.load_data()
 
+        # Verifica e adiciona IDs sequenciais
+        self.ensure_sequential_ids()
+
         # Variáveis de controle
         self.detail_columns_to_display = ALL_COLUMNS_DETAIL.copy()
         self.columns_to_display = []
@@ -76,28 +79,66 @@ class App:
         self.custom_views = {
             "Aguardando aprovação": [
                 'Carimbo de data/hora_str',
-                'Endereço de e-mail',
-                'Nome completo (sem abreviações):',
+                'Nome completo (sem abreviações):','Telefone de contato:',
                 'Curso:',
                 'Orientador'
             ],
-            "Aceitas": [  # anteriormente "Pendências" – agora "Aceitas" filtra por status "Autorizado"
-                'Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação', 'Status', 'Nome completo (sem abreviações):',
-                'Valor', 'Curso:', 'Orientador'
+            "Aceitas": [  
+                'Id', 'Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
+                'Nome completo (sem abreviações):','Telefone de contato:',
+                'Curso:',
+                'Orientador',
+                'Valor'
             ],
             "Aguardando documentos": [
-                'Carimbo de data/hora_str',
-                'Nome completo (sem abreviações):',
-                'Ultima Atualizacao_str','Ultima modificação',
+                'Id','Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
+                'Nome completo (sem abreviações):','Telefone de contato:',
+                'Curso:',
+                'Orientador',
                 'Valor'
             ],
             "Pronto para pagamento": [
-                'Carimbo de data/hora_str', 'Ultima Atualizacao_str', 'Ultima modificação', 'Nome completo (sem abreviações):',
-                'Valor', 'Telefone de contato:',
-                'Dados bancários (banco, agência e conta) '
+                'Id','Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
+                'Nome completo (sem abreviações):','Telefone de contato:',
+                'Curso:',
+                'Orientador',
+                'Valor'
             ]
         }
 
+    def ensure_sequential_ids(self):
+        # Verifica se a coluna 'Id' existe, caso contrário, cria-a
+        if 'Id' not in self.data.columns:
+            self.data['Id'] = None
+
+        # Converte a coluna 'Id' para numérico, ignorando erros
+        self.data['Id'] = pd.to_numeric(self.data['Id'], errors='coerce')
+
+        # Ordena os dados pela coluna 'Carimbo de data/hora'
+        self.data = self.data.sort_values(by='Carimbo de data/hora')
+
+        # Gera IDs sequenciais
+        existing_ids = self.data['Id'].dropna().astype(int).tolist()
+        if not existing_ids:
+            next_id = 1
+        else:
+            next_id = max(existing_ids) + 1
+
+        for idx, row in self.data.iterrows():
+            if pd.isna(row['Id']):
+                self.data.at[idx, 'Id'] = next_id
+                next_id += 1
+
+        # Obtém o ano atual
+        current_year = datetime.now().year
+
+        # Formata os IDs para "{Ano} - xxxx" com zeros à esquerda
+        self.data['Id'] = self.data['Id'].apply(lambda x: f"{current_year} - {int(x):04d}")
+
+        # Atualiza os IDs na planilha
+        for idx, row in self.data.iterrows():
+            self.sheets_handler.update_cell(row['Carimbo de data/hora'], 'Id', row['Id'])
+            
     def load_email_templates(self):
         try:
             with open('email_templates.json', 'r', encoding='utf-8') as f:
@@ -443,13 +484,19 @@ class App:
                 ]
             elif self.current_view == "Search":
                 self.columns_to_display = [
-                    'Carimbo de data/hora_str', 'Nome completo (sem abreviações):',
-                    'Ultima Atualizacao_str','Ultima modificação', 'Valor', 'Status'
+                    'Id','Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
+                    'Nome completo (sem abreviações):','Telefone de contato:',
+                    'Curso:',
+                    'Orientador',
+                    'Valor'
                 ]
             else:
                 self.columns_to_display = [
-                    'Carimbo de data/hora_str', 'Nome completo (sem abreviações):',
-                    'Ultima Atualizacao_str','Ultima modificação', 'Valor', 'Status'
+                    'Id','Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
+                    'Nome completo (sem abreviações):','Telefone de contato:',
+                    'Curso:',
+                    'Orientador',
+                    'Valor'
                 ]
 
         self.tree["columns"] = self.columns_to_display
@@ -540,6 +587,13 @@ class App:
         arrow = "▲" if reverse else "▼"
         display_name = self.column_display_names.get(col, col)
         new_text = f"{display_name} {arrow}"
+        
+        # Reset the text of all column headings
+        for column in tv["columns"]:
+            display_name = self.column_display_names.get(column, column)
+            tv.heading(column, text=display_name, command=lambda _col=column: self.treeview_sort_column(tv, _col, False))
+        
+        # Set the text of the sorted column with the arrow
         tv.heading(col, text=new_text, command=lambda: self.treeview_sort_column(tv, col, not reverse))
 
     def on_treeview_click(self, event):

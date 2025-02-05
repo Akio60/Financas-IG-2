@@ -7,6 +7,7 @@ from datetime import datetime
 import json
 import os
 import uuid
+import pandas as pd  # Adicionando import do pandas
 
 NOTIFICATION_CARGOS_FILE = "notification_cargos.json"
 USERS_DB_FILE = "users_db.json"
@@ -140,10 +141,6 @@ class DetailsManager:
                                 return
                             new_status = 'Autorizado'
                             ts_str = row_data['Carimbo de data/hora']
-                            # Verifica se o campo "Id" está vazio; se sim, gera um UUID único
-                            if not row_data.get("Id"):
-                                unique_id = str(uuid.uuid4())
-                                self.app.sheets_handler.update_cell(ts_str, "Id", unique_id)
                             self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
                             self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name)
                             self.notify_next_responsible("Autorizado", row_data)
@@ -407,6 +404,7 @@ class DetailsManager:
                 'Título do projeto do qual participa:',
             ],
             "Detalhes da Solicitação": [
+                'Id',
                 'Motivo da solicitação',
                 'Nome do evento ou, se atividade de campo, motivos da realização\n* caso não se trate de evento ou viagem de campo, preencher N/A',
                 'Local de realização do evento',
