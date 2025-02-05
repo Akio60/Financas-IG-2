@@ -29,8 +29,8 @@ class GoogleSheetsHandler:
                 current_timestamp = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
                 self.sheet.update_cell(row_number, self.column_indices['Ultima Atualizacao'], current_timestamp)
 
-                if user_name and 'UltimoUsuario' in self.column_indices:
-                    self.sheet.update_cell(row_number, self.column_indices['UltimoUsuario'], user_name)
+                if user_name and 'Ultima modificação' in self.column_indices:
+                    self.sheet.update_cell(row_number, self.column_indices['Ultima modificação'], user_name)
 
                 # Logamos a mudança
                 logger_app.log_info(f"update_status: {user_name} mudou status para {new_status}, timestamp={timestamp_value}")
@@ -46,8 +46,8 @@ class GoogleSheetsHandler:
                 current_timestamp = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
                 self.sheet.update_cell(row_number, self.column_indices['Ultima Atualizacao'], current_timestamp)
 
-                if user_name and 'UltimoUsuario' in self.column_indices:
-                    self.sheet.update_cell(row_number, self.column_indices['UltimoUsuario'], user_name)
+                if user_name and 'Ultima modificação' in self.column_indices:
+                    self.sheet.update_cell(row_number, self.column_indices['Ultima modificação'], user_name)
 
                 logger_app.log_info(f"update_value: {user_name} alterou valor para {new_value}, timestamp={timestamp_value}")
                 return True

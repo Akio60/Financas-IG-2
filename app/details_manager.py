@@ -21,7 +21,7 @@ FORM_FIELD_MAPPING = {
     'Ano de ingresso o PPG:': 'Ano de Ingresso no Programa',
     'Curso:': 'Curso Matriculado',
     'Orientador': 'Professor Orientador',
-    'Possui bolsa?': 'Possui Bolsa?',
+    'Possui bolsa?': 'Possui Bolsa',
     'Qual a agência de fomento?': 'Agência de Fomento',
     'Título do projeto do qual participa:': 'Título do Projeto',
     'Motivo da solicitação': 'Motivo do Pedido',

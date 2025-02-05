@@ -90,21 +90,24 @@ class SettingsManager:
 
         instructions_label = tb.Label(
             col1,
-            text="Configurações (Apenas A5)",
+            text="Configurações",
             font=("Helvetica", 12, "bold")
         )
         instructions_label.grid(row=0, column=0, sticky='w', pady=5)
 
-        mask_btn = tb.Button(
-            col1,
-            text="Títulos de Informações",
-            bootstyle=WARNING,
-            width=BTN_WIDTH,
-            command=self.open_mask_editor
-        )
-        mask_btn.grid(row=1, column=0, sticky='w', pady=10)
+
 
         if self.app.user_role == "A5":
+            
+            mask_btn = tb.Button(
+                col1,
+                text="Títulos de Informações",
+                bootstyle=WARNING,
+                width=BTN_WIDTH,
+                command=self.open_mask_editor
+            )
+            mask_btn.grid(row=1, column=0, sticky='w', pady=10)
+            
             user_btn = tb.Button(
                 col1,
                 text="Cadastrar/Remover Usuários",
@@ -232,7 +235,7 @@ class SettingsManager:
             'Local de realização do evento', 'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
             'Telefone de contato:', 'Carimbo de data/hora_str', 'Status', 'Ultima Atualizacao', 'Valor',
             'E-mail DAC:', 'Endereço completo (logradouro, número, bairro, cidade e estado)', 'CPF:',
-            'RG/RNE:', 'Dados bancários (banco, agência e conta) ', 'Valor solicitado. Somente valor, sem pontos e vírgula','UltimoUsuario'
+            'RG/RNE:', 'Dados bancários (banco, agência e conta) ', 'Valor solicitado. Somente valor, sem pontos e vírgula','Ultima modificação'
         ]
         current_cols = self.app.custom_views.get(view_name, [])
 

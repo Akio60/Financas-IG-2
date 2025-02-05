@@ -82,17 +82,17 @@ class App:
                 'Orientador'
             ],
             "Aceitas": [  # anteriormente "Pendências" – agora "Aceitas" filtra por status "Autorizado"
-                'Carimbo de data/hora_str','Ultima Atualizacao_str', 'UltimoUsuario', 'Status', 'Nome completo (sem abreviações):',
+                'Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação', 'Status', 'Nome completo (sem abreviações):',
                 'Valor', 'Curso:', 'Orientador'
             ],
             "Aguardando documentos": [
                 'Carimbo de data/hora_str',
                 'Nome completo (sem abreviações):',
-                'Ultima Atualizacao_str','UltimoUsuario',
+                'Ultima Atualizacao_str','Ultima modificação',
                 'Valor'
             ],
             "Pronto para pagamento": [
-                'Carimbo de data/hora_str', 'Ultima Atualizacao_str', 'UltimoUsuario', 'Nome completo (sem abreviações):',
+                'Carimbo de data/hora_str', 'Ultima Atualizacao_str', 'Ultima modificação', 'Nome completo (sem abreviações):',
                 'Valor', 'Telefone de contato:',
                 'Dados bancários (banco, agência e conta) '
             ]
@@ -190,6 +190,14 @@ class App:
         if self.user_role in ["A1", "A2", "A3", "A4"]:
             self.settings_button.pack_forget()
 
+        logout_button = tb.Button(
+            bottom_buttons_frame,
+            text="Logout",
+            bootstyle=DANGER,
+            command=self.logout
+        )
+        logout_button.pack(side=BOTTOM, padx=10, pady=10, fill =X)
+        
         self.search_button = tb.Button(
             bottom_buttons_frame,
             text="Pesquisar",
@@ -240,13 +248,6 @@ class App:
         )
         status_label.pack(side=LEFT, padx=10, pady=10)
 
-        logout_button = tb.Button(
-            bottom_frame,
-            text="Logout",
-            bootstyle=DANGER,
-            command=self.logout
-        )
-        logout_button.pack(side=RIGHT, padx=10, pady=10)
 
         # Frame para o conteúdo principal (home, detalhes, etc.)
         self.content_frame = tb.Frame(self.main_frame)
@@ -264,6 +265,7 @@ class App:
             bootstyle=PRIMARY,
             command=self.back_to_main_view
         )
+        
     def logout(self):
         sys.exit(0)
 
@@ -396,7 +398,6 @@ class App:
             # Volta para a home
             self.go_to_home()
 
-
     def update_table(self):
         self.table_frame = tb.Frame(self.content_frame)
         self.table_frame.pack(fill=BOTH, expand=True, padx=20)
@@ -443,12 +444,12 @@ class App:
             elif self.current_view == "Search":
                 self.columns_to_display = [
                     'Carimbo de data/hora_str', 'Nome completo (sem abreviações):',
-                    'Ultima Atualizacao_str','UltimoUsuario', 'Valor', 'Status'
+                    'Ultima Atualizacao_str','Ultima modificação', 'Valor', 'Status'
                 ]
             else:
                 self.columns_to_display = [
                     'Carimbo de data/hora_str', 'Nome completo (sem abreviações):',
-                    'Ultima Atualizacao_str','UltimoUsuario', 'Valor', 'Status'
+                    'Ultima Atualizacao_str','Ultima modificação', 'Valor', 'Status'
                 ]
 
         self.tree["columns"] = self.columns_to_display
@@ -562,14 +563,7 @@ class App:
         self.settings_manager.open_settings()
 
     def show_log_history(self):
-        """
-        Atualiza a origem dos dados de log para que sejam lidos da planilha
-        do Google Sheets (em vez do arquivo local). Essa planilha deve ter duas abas:
-        uma chamada "Info" para logs de nível INFO e WARNING e outra chamada "Errors"
-        para logs de nível ERROR.
-        """
         try:
-            # Importa os módulos necessários para acesso à planilha
             from oauth2client.service_account import ServiceAccountCredentials
             import gspread
         except ImportError:
