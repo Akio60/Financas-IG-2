@@ -56,4 +56,5 @@ COLUMN_DISPLAY_NAMES = {
     'Carimbo de data/hora_str': 'Data do requerimento',
     'Ultima Atualizacao_str'  : 'Última atualização',
     'Nome completo (sem abreviações):' : 'Nome completo',
+    'Qual a agência de fomento?':'Agência de fomento'
 }

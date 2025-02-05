@@ -93,6 +93,7 @@ class DetailsManager:
                 'Título do projeto do qual participa:',
             ],
             "Detalhes da Solicitação": [
+                'Id',
                 'Motivo da solicitação',
                 'Nome do evento ou, se atividade de campo, motivos da realização\n* caso não se trate de evento ou viagem de campo, preencher N/A',
                 'Local de realização do evento',
@@ -173,7 +174,13 @@ class DetailsManager:
                 history_frame.grid(row=row_idx, column=0, columnspan=2, sticky='nsew', padx=20, pady=(5,20))
                 tab_frame.rowconfigure(row_idx, weight=1)
 
-                history_columns = ['Carimbo de data/hora', 'Ultima Atualizacao', 'Valor', 'Status']
+                history_columns = [
+                    'Id',
+                    'Carimbo de data/hora',
+                    'Ultima Atualizacao',
+                    'Valor',
+                    'Status'
+                ]
                 history_tree = tb.Treeview(history_frame, columns=history_columns, show='headings', height=10)
                 history_tree.pack(fill=BOTH, expand=True)
 
@@ -287,6 +294,22 @@ class DetailsManager:
             cancel_btn.pack(pady=10)
         
         elif view == "Aguardando documentos":
+            
+            def request_documents():
+                if role not in ["A3", "A5"]:
+                    messagebox.showwarning("Permissão Negada", "Apenas A3 ou A5.")
+                    return
+                new_status = 'Aguardando documentação'
+                ts_str = row_data['Carimbo de data/hora']
+                self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
+
+                motivo = row_data.get('Motivo da solicitação', 'Outros').strip()
+                email_template = self.app.email_templates.get(motivo, self.app.email_templates['Outros'])
+                subject = "Requisição de Documentos"
+                body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
+                self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
+                self.app.update_table()
+                self.app.go_to_home()
 
             def authorize_payment():
                 if role not in ["A3", "A5"]:
@@ -323,6 +346,9 @@ class DetailsManager:
                     self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
                     self.app.update_table()
                     self.app.go_to_home()
+
+            req_btn = tb.Button(actions_tab, text="Requerir Documentos", bootstyle=WARNING, command=request_documents)
+            req_btn.pack(pady=10)
 
             auth_btn = tb.Button(actions_tab, text="Autorizar Pagamento", bootstyle=SUCCESS, command=authorize_payment)
             auth_btn.pack(pady=10)

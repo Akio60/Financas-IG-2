@@ -81,27 +81,33 @@ class App:
                 'Carimbo de data/hora_str',
                 'Nome completo (sem abreviações):','Telefone de contato:',
                 'Curso:',
-                'Orientador'
+                'Orientador',
+                'Qual a agência de fomento?',
+                'Motivo da solicitação'
             ],
             "Aceitas": [  
                 'Id', 'Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
                 'Nome completo (sem abreviações):','Telefone de contato:',
                 'Curso:',
                 'Orientador',
-                'Valor'
+                'Qual a agência de fomento?',
+                'Motivo da solicitação',
             ],
             "Aguardando documentos": [
                 'Id','Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
                 'Nome completo (sem abreviações):','Telefone de contato:',
                 'Curso:',
                 'Orientador',
-                'Valor'
+                'Qual a agência de fomento?',
+                'Motivo da solicitação',
             ],
             "Pronto para pagamento": [
                 'Id','Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
                 'Nome completo (sem abreviações):','Telefone de contato:',
                 'Curso:',
                 'Orientador',
+                'Qual a agência de fomento?',
+                'Motivo da solicitação',
                 'Valor'
             ]
         }
@@ -451,14 +457,14 @@ class App:
         table_title_label.pack(pady=10)
 
         style = tb.Style()
-        default_row_height = style.lookup("Treeview", "rowheight", default=20)
-        new_row_height = 40
-        style.configure("Treeview", rowheight=new_row_height, font=("TkDefaultFont", 11))
+        row_height = 40
+        style.configure("Treeview", rowheight=row_height, font=("TkDefaultFont", 11))
 
         self.tree = tb.Treeview(self.table_frame, show="headings", style="Treeview")
         self.tree.pack(fill=BOTH, expand=True)
 
         scrollbar = tb.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
+        
         self.tree.configure(yscroll=scrollbar.set)
         scrollbar.pack(side=RIGHT, fill=Y)
 
@@ -469,37 +475,44 @@ class App:
         if self.current_view in self.custom_views:
             self.columns_to_display = self.custom_views[self.current_view]
         else:
-            if self.current_view == "Aguardando aprovação":
-                self.columns_to_display = [
-                    'Endereço de e-mail',
-                    'Nome completo (sem abreviações):',
-                    'Curso:',
-                    'Orientador',
-                    'Qual a agência de fomento?',
-                    'Título do projeto do qual participa:',
-                    'Motivo da solicitação',
-                    'Local de realização do evento',
-                    'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
-                    'Telefone de contato:'
-                ]
-            elif self.current_view == "Search":
-                self.columns_to_display = [
-                    'Id','Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
-                    'Nome completo (sem abreviações):','Telefone de contato:',
-                    'Curso:',
-                    'Orientador',
-                    'Valor'
-                ]
-            else:
-                self.columns_to_display = [
-                    'Id','Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
-                    'Nome completo (sem abreviações):','Telefone de contato:',
-                    'Curso:',
-                    'Orientador',
-                    'Valor'
-                ]
+            self.columns_to_display = [
+                'Id', 'Carimbo de data/hora_str', 'Ultima Atualizacao_str', 'Ultima modificação',
+                'Nome completo (sem abreviações):', 'Telefone de contato:',
+                'Curso:', 'Orientador', 'Valor'
+            ]
 
         self.tree["columns"] = self.columns_to_display
+        max_widths = {
+            'Telefone de contato:': 70,
+            'Ultima modificação': 55,
+            'Curso:': 70,
+            'Orientador':70,
+            'Valor': 50,
+            'Id': 50,
+            'Carimbo de data/hora_str': 55,
+            'Ultima Atualizacao_str': 55,
+            'Motivo da solicitação': 100,
+            'Telefone de contato:': 100,
+            'Qual a agência de fomento?': 70,
+            'Motivo da solicitação': 75,
+            'Nome completo (sem abreviações):': 250
+        }
+        min_widths = {
+            'Telefone de contato:': 70,
+            'Ultima modificação': 55,
+            'Curso:': 70,
+            'Orientador':70,
+            'Valor': 50,
+            'Id': 50,
+            'Carimbo de data/hora_str': 55,
+            'Ultima Atualizacao_str': 55,
+            'Motivo da solicitação': 100,
+            'Telefone de contato:': 100,
+            'Qual a agência de fomento?': 70,
+            'Motivo da solicitação': 75,
+            'Nome completo (sem abreviações):': 250
+        }
+
         for col in self.columns_to_display:
             display_name = self.column_display_names.get(col, col)
             self.tree.heading(
@@ -507,7 +520,8 @@ class App:
                 text=display_name,
                 command=lambda _col=col: self.treeview_sort_column(self.tree, _col, False)
             )
-            self.tree.column(col, anchor="center", width=150)
+            col_width = max(max_widths.get(col, 150), min_widths.get(col, 50))
+            self.tree.column(col, anchor="center", width=col_width)
 
         self.data = self.sheets_handler.load_data()
         self.data['Carimbo de data/hora'] = pd.to_datetime(
