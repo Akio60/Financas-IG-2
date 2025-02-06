@@ -1,5 +1,3 @@
-# main_app.py
-
 import os
 import json
 import pandas as pd
@@ -10,7 +8,6 @@ from PIL import Image, ImageTk
 from tkinter import messagebox, BOTH, LEFT, Y, RIGHT, X, END
 import sys
 import calendar
-import threading
 
 from constants import (
     ALL_COLUMNS_DETAIL, ALL_COLUMNS, BG_COLOR, BUTTON_BG_COLOR, FRAME_BG_COLOR,
@@ -31,12 +28,8 @@ class App:
         self.user_role = user_role
         self.user_name = user_name
 
-        # Carrega DF em uma thread separada
-        self.load_data_in_background()
-
-        # Verifica e adiciona IDs sequenciais
-        threading.Thread(target=self.ensure_sequential_ids()).start()
-
+        # CHANGED: Removemos qualquer chamada/flag de IDs. O aplicativo não irá mais gerar IDs localmente.
+        # self.ids_assigned = False
 
         # Variáveis de controle
         self.detail_columns_to_display = ALL_COLUMNS_DETAIL.copy()
@@ -77,7 +70,6 @@ class App:
         self.table_frame = None
         self.tree = None
 
-
         # Colunas customizadas (novos filtros)
         self.custom_views = {
             "Aguardando aprovação": [
@@ -88,7 +80,7 @@ class App:
                 'Qual a agência de fomento?',
                 'Motivo da solicitação'
             ],
-            "Aceitas": [  
+            "Aceitas": [
                 'Id', 'Carimbo de data/hora_str','Ultima Atualizacao_str', 'Ultima modificação',
                 'Nome completo (sem abreviações):','Telefone de contato:',
                 'Curso:',
@@ -115,43 +107,8 @@ class App:
             ]
         }
 
-    def load_data_in_background(self):
-        self.data = self.sheets_handler.load_data()
-        self.ensure_sequential_ids()
-        
-    def ensure_sequential_ids(self):
-        # Verifica se a coluna 'Id' existe, caso contrário, cria-a
-        if 'Id' not in self.data.columns:
-            self.data['Id'] = None
+    # CHANGED: Removemos o método ensure_sequential_ids() e qualquer outro que atualize/manipule IDs, pois agora isso será feito via Apps Script.
 
-        # Converte a coluna 'Id' para numérico, ignorando erros
-        self.data['Id'] = pd.to_numeric(self.data['Id'], errors='coerce')
-
-        # Ordena os dados pela coluna 'Carimbo de data/hora'
-        self.data = self.data.sort_values(by='Carimbo de data/hora')
-
-        # Gera IDs sequenciais
-        existing_ids = self.data['Id'].dropna().astype(int).tolist()
-        if not existing_ids:
-            next_id = 1
-        else:
-            next_id = max(existing_ids) + 1
-
-        for idx, row in self.data.iterrows():
-            if pd.isna(row['Id']):
-                self.data.at[idx, 'Id'] = next_id
-                next_id += 1
-
-        # Obtém o ano atual
-        current_year = datetime.now().year
-
-        # Formata os IDs para "{Ano} - xxxx" com zeros à esquerda
-        self.data['Id'] = self.data['Id'].apply(lambda x: f"{current_year} - {int(x):04d}")
-
-        # Atualiza os IDs na planilha
-        for idx, row in self.data.iterrows():
-            self.sheets_handler.update_cell(row['Carimbo de data/hora'], 'Id', row['Id'])
-            
     def load_email_templates(self):
         try:
             with open('email_templates.json', 'r', encoding='utf-8') as f:
@@ -188,8 +145,6 @@ class App:
         )
         title_label.pack(pady=20, padx=10)
 
-        # Botões do menu lateral – nova ordem e nomenclatura:
-                # Botões do menu lateral
         self.home_button = tb.Button(
             self.left_frame,
             text="🏠 Home",
@@ -197,7 +152,7 @@ class App:
             command=self.go_to_home
         )
         self.home_button.pack(pady=10, padx=10, fill=X)
-        
+
         self.received_button = tb.Button(
             self.left_frame,
             text="Solicitações recebidas",
@@ -233,7 +188,6 @@ class App:
         bottom_buttons_frame = tb.Frame(self.left_frame)
         bottom_buttons_frame.pack(side=BOTTOM, fill=X, pady=10)
 
-        # Botão de configurações
         self.settings_button = tb.Button(
             self.left_frame,
             text='⚙ Configurações',
@@ -251,7 +205,7 @@ class App:
             command=self.logout
         )
         logout_button.pack(side=BOTTOM, padx=10, pady=10, fill =X)
-        
+
         self.search_button = tb.Button(
             bottom_buttons_frame,
             text="Pesquisar",
@@ -273,8 +227,7 @@ class App:
             command=self.show_statistics
         )
         self.statistics_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
-        
-        # Novo botão: Histórico de alterações (exibe log dividido entre ERROR e INFO)
+
         self.log_history_button = tb.Button(
             bottom_buttons_frame,
             text="Histórico de alterações",
@@ -291,7 +244,6 @@ class App:
         )
         self.view_all_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
 
-        # Frame inferior (rodapé)
         bottom_frame = tb.Frame(self.root)
         bottom_frame.pack(side=BOTTOM, fill=X)
 
@@ -302,8 +254,6 @@ class App:
         )
         status_label.pack(side=LEFT, padx=10, pady=10)
 
-
-        # Frame para o conteúdo principal (home, detalhes, etc.)
         self.content_frame = tb.Frame(self.main_frame)
         self.content_frame.pack(side=LEFT, fill=BOTH, expand=True)
 
@@ -311,7 +261,6 @@ class App:
         self.welcome_frame.pack(fill=BOTH, expand=True)
 
         self.setup_welcome_screen()
-   # O table_frame será criado SÓ quando chamarmos select_view() ou perform_search()
 
         self.back_button = tb.Button(
             self.content_frame,
@@ -319,7 +268,7 @@ class App:
             bootstyle=PRIMARY,
             command=self.back_to_main_view
         )
-        
+
     def logout(self):
         sys.exit(0)
 
@@ -435,22 +384,20 @@ class App:
         self.search_var.set('')
 
     def back_to_main_view(self):
-            if self.details_frame:
-                self.details_frame.pack_forget()
-                self.details_frame.destroy()
-                self.details_frame = None
+        if self.details_frame:
+            self.details_frame.pack_forget()
+            self.details_frame.destroy()
+            self.details_frame = None
 
-            if self.back_button.winfo_ismapped():
-                self.back_button.pack_forget()
+        if self.back_button.winfo_ismapped():
+            self.back_button.pack_forget()
 
-            # Se table_frame existir, destruí-lo (caso queira recriar)
-            if self.table_frame:
-                self.table_frame.pack_forget()
-                self.table_frame.destroy()
-                self.table_frame = None
+        if self.table_frame:
+            self.table_frame.pack_forget()
+            self.table_frame.destroy()
+            self.table_frame = None
 
-            # Volta para a home
-            self.go_to_home()
+        self.go_to_home()
 
     def update_table(self):
         self.table_frame = tb.Frame(self.content_frame)
@@ -471,7 +418,6 @@ class App:
         self.tree.pack(fill=BOTH, expand=True)
 
         scrollbar = tb.Scrollbar(self.table_frame, orient="vertical", command=self.tree.yview)
-        
         self.tree.configure(yscroll=scrollbar.set)
         scrollbar.pack(side=RIGHT, fill=Y)
 
@@ -499,9 +445,7 @@ class App:
             'Carimbo de data/hora_str': 55,
             'Ultima Atualizacao_str': 55,
             'Motivo da solicitação': 100,
-            'Telefone de contato:': 100,
             'Qual a agência de fomento?': 70,
-            'Motivo da solicitação': 75,
             'Nome completo (sem abreviações):': 250
         }
         min_widths = {
@@ -514,9 +458,7 @@ class App:
             'Carimbo de data/hora_str': 55,
             'Ultima Atualizacao_str': 55,
             'Motivo da solicitação': 100,
-            'Telefone de contato:': 100,
             'Qual a agência de fomento?': 70,
-            'Motivo da solicitação': 75,
             'Nome completo (sem abreviações):': 250
         }
 
@@ -530,14 +472,16 @@ class App:
             col_width = max(max_widths.get(col, 150), min_widths.get(col, 50))
             self.tree.column(col, anchor="center", width=col_width)
 
+        # Busca os dados atualizados da planilha
         self.data = self.sheets_handler.load_data()
+
         self.data['Carimbo de data/hora'] = pd.to_datetime(
             self.data['Carimbo de data/hora'],
             format='%d/%m/%Y %H:%M:%S',
             errors='coerce'
         )
         self.data['Carimbo de data/hora_str'] = self.data['Carimbo de data/hora'].dt.strftime('%d/%m/%Y')
-        # Formata a coluna "Ultima Atualizacao" da mesma forma que "Carimbo de data/hora"
+
         self.data['Ultima Atualizacao'] = pd.to_datetime(
             self.data['Ultima Atualizacao'],
             format='%d/%m/%Y %H:%M:%S',
@@ -608,13 +552,11 @@ class App:
         arrow = "▲" if reverse else "▼"
         display_name = self.column_display_names.get(col, col)
         new_text = f"{display_name} {arrow}"
-        
-        # Reset the text of all column headings
+
         for column in tv["columns"]:
             display_name = self.column_display_names.get(column, column)
             tv.heading(column, text=display_name, command=lambda _col=column: self.treeview_sort_column(tv, _col, False))
-        
-        # Set the text of the sorted column with the arrow
+
         tv.heading(col, text=new_text, command=lambda: self.treeview_sort_column(tv, col, not reverse))
 
     def on_treeview_click(self, event):
@@ -645,7 +587,6 @@ class App:
             messagebox.showerror("Erro", "As bibliotecas gspread e oauth2client são necessárias para acessar o Google Sheets.")
             return
 
-        # Define os escopos e autentica usando o arquivo de credenciais
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         try:
             creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
@@ -654,7 +595,6 @@ class App:
             return
         client = gspread.authorize(creds)
 
-        # Abre a planilha de logs pela URL fornecida
         SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/15_0ArdsS89PRz1FmMmpTU9GQzETnUws6Ta-_TNCWITQ/edit?usp=sharing"
         try:
             spreadsheet = client.open_by_url(SPREADSHEET_URL)
@@ -662,7 +602,6 @@ class App:
             messagebox.showerror("Erro", f"Erro ao abrir a planilha: {e}")
             return
 
-        # Tenta acessar as worksheets "Info" e "Errors"
         try:
             info_sheet = spreadsheet.worksheet("Info")
         except Exception as e:
@@ -675,15 +614,12 @@ class App:
             messagebox.showerror("Erro", f"Não foi possível acessar a aba 'Errors': {e}")
             return
 
-        # Obtém todos os registros (list of lists) de cada aba
         info_data = info_sheet.get_all_values()
         error_data = error_sheet.get_all_values()
 
-        # Se houver cabeçalho, remove-o (primeira linha)
         info_lines = [" | ".join(row) for row in info_data[1:]] if len(info_data) > 1 else []
         error_lines = [" | ".join(row) for row in error_data[1:]] if len(error_data) > 1 else []
 
-        # Cria a janela de histórico de alterações
         log_window = tb.Toplevel(self.root)
         log_window.title("Histórico de Alterações")
         log_window.geometry("800x600")
