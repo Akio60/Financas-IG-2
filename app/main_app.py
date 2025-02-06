@@ -10,6 +10,7 @@ from PIL import Image, ImageTk
 from tkinter import messagebox, BOTH, LEFT, Y, RIGHT, X, END
 import sys
 import calendar
+import threading
 
 from constants import (
     ALL_COLUMNS_DETAIL, ALL_COLUMNS, BG_COLOR, BUTTON_BG_COLOR, FRAME_BG_COLOR,
@@ -30,11 +31,12 @@ class App:
         self.user_role = user_role
         self.user_name = user_name
 
-        # Carrega DF
-        self.data = self.sheets_handler.load_data()
+        # Carrega DF em uma thread separada
+        self.load_data_in_background()
 
         # Verifica e adiciona IDs sequenciais
-        self.ensure_sequential_ids()
+        threading.Thread(target=self.ensure_sequential_ids()).start()
+
 
         # Variáveis de controle
         self.detail_columns_to_display = ALL_COLUMNS_DETAIL.copy()
@@ -75,6 +77,7 @@ class App:
         self.table_frame = None
         self.tree = None
 
+
         # Colunas customizadas (novos filtros)
         self.custom_views = {
             "Aguardando aprovação": [
@@ -112,6 +115,10 @@ class App:
             ]
         }
 
+    def load_data_in_background(self):
+        self.data = self.sheets_handler.load_data()
+        self.ensure_sequential_ids()
+        
     def ensure_sequential_ids(self):
         # Verifica se a coluna 'Id' existe, caso contrário, cria-a
         if 'Id' not in self.data.columns:
