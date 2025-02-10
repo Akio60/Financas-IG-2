@@ -80,16 +80,22 @@ class RoundedButton(tk.Canvas):
         if self.command:
             self.command()
 
-USERS_DB_FILE = "users_db.json"
+BASE_DIR = Path(__file__).resolve().parent
+USERS_DB_FILE = os.path.join(BASE_DIR, "users_db.json")
+
 def load_users_db():
-    if os.path.exists(USERS_DB_FILE):
-        with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
+    try:
+        if os.path.exists(USERS_DB_FILE):
+            with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        print(f"Arquivo de usuários não encontrado em: {USERS_DB_FILE}")
+        return {}
+    except Exception as e:
+        print(f"Erro ao carregar banco de usuários: {e}")
+        return {}
 
 USERS_DB = load_users_db()
 
-BASE_DIR = Path(__file__).resolve().parent
 os.chdir(BASE_DIR)
 ASSETS_PATH = BASE_DIR / "images" / "assets" / "login"
 
