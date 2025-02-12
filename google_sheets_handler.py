@@ -81,3 +81,21 @@ class GoogleSheetsHandler:
                     self.sheet.update_cell(row_number, col_number, new_value)
                     return True
         return False
+
+    @api_call_handler
+    def update_observations(self, timestamp_value, observations):
+        """Atualiza as observações de uma solicitação específica."""
+        try:
+            cell_list = self.sheet.col_values(self.column_indices['Carimbo de data/hora'])
+            for idx, cell_value in enumerate(cell_list[1:], start=2):
+                if cell_value == timestamp_value:
+                    row_number = idx
+                    if 'Observações' in self.column_indices:
+                        col_number = self.column_indices['Observações']
+                        self.sheet.update_cell(row_number, col_number, observations)
+                        logger_app.log_info(f"update_observations: Observações atualizadas para timestamp={timestamp_value}")
+                        return True
+            return False
+        except Exception as e:
+            logger_app.log_error(f"Erro ao atualizar observações: {e}")
+            return False

@@ -34,7 +34,9 @@ FORM_FIELD_MAPPING = {
         'Itens a Financiar',
     'Valor solicitado. Somente valor, sem pontos e vírgula' : 'Valor Solicitado (R$)',
     'Valor': 'Valor liberado para a solicitação',
-    'Dados bancários (banco, agência e conta) ': 'Dados Bancários'
+    'Dados bancários (banco, agência e conta) ': 'Dados Bancários',
+    'Descrever a solicitação resumidamente': 'Resumo da Solicitação',
+    'Observações'   : 'Observações'
 }
 
 def load_notification_cargos():
@@ -53,6 +55,8 @@ class DetailsManager:
     def __init__(self, app):
         self.app = app
         self.FORM_FIELD_MAPPING = FORM_FIELD_MAPPING
+        self.edit_mode = False
+        self.original_text = ""
 
     def show_details_in_place(self, row_data):
         if self.app.user_role == "A1":
@@ -99,6 +103,8 @@ class DetailsManager:
                 'Local de realização do evento',
                 'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
                 'Descrever detalhadamente os itens a serem financiados. Por ex: inscrição em evento, diárias ...',
+                'Descrever a solicitação resumidamente',
+                'Observações'
             ],
             "Informações Financeiras": [
                 'Valor solicitado. Somente valor, sem pontos e vírgula',
@@ -120,9 +126,52 @@ class DetailsManager:
                     display_label = self.FORM_FIELD_MAPPING.get(col, col)
                     label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
                     label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
-                    value_text = str(row_data[col])
-                    value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
-                    value.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
+
+                    if col == 'Observações':
+                        # Frame para conter a caixa de texto e botões
+                        obs_frame = tb.Frame(tab_frame)
+                        obs_frame.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
+
+                        # Caixa de texto para observações
+                        self.obs_text = Text(obs_frame, width=40, height=4, state='disabled')
+                        self.obs_text.pack(side='left', padx=(0, 10))
+                        self.obs_text.insert('1.0', str(row_data[col]))
+                        
+                        # Frame para botões
+                        btn_frame = tb.Frame(obs_frame)
+                        btn_frame.pack(side='left', fill='y')
+                        
+                        # Botão de editar
+                        self.edit_btn = tb.Button(
+                            btn_frame, 
+                            text="Editar", 
+                            bootstyle=PRIMARY,
+                            command=lambda: self.toggle_edit_mode(row_data)
+                        )
+                        self.edit_btn.pack(pady=2)
+                        
+                        # Botões de confirmar e cancelar (inicialmente ocultos)
+                        self.confirm_btn = tb.Button(
+                            btn_frame,
+                            text="Confirmar",
+                            bootstyle=SUCCESS,
+                            command=lambda: self.save_observations(row_data),
+                            state='disabled'
+                        )
+                        self.confirm_btn.pack(pady=2)
+                        
+                        self.cancel_btn = tb.Button(
+                            btn_frame,
+                            text="Cancelar",
+                            bootstyle=DANGER,
+                            command=self.cancel_edit,
+                            state='disabled'
+                        )
+                        self.cancel_btn.pack(pady=2)
+                    else:
+                        value_text = str(row_data[col])
+                        value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
+                        value.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
                     row_idx += 1
 
             if section_name == "Informações Financeiras":
@@ -531,3 +580,41 @@ class DetailsManager:
 
         send_button = tb.Button(email_window, text="Enviar E-mail", bootstyle=SUCCESS, command=send_email_action)
         send_button.pack(pady=10)
+
+    def toggle_edit_mode(self, row_data):
+        if not self.edit_mode:
+            # Entrando no modo de edição
+            self.original_text = self.obs_text.get('1.0', 'end-1c')
+            self.obs_text.config(state='normal')
+            self.edit_btn.config(state='disabled')
+            self.confirm_btn.config(state='normal')
+            self.cancel_btn.config(state='normal')
+            self.edit_mode = True
+        
+    def save_observations(self, row_data):
+        new_text = self.obs_text.get('1.0', 'end-1c')
+        ts_str = row_data['Carimbo de data/hora']
+        
+        # Atualizar no Google Sheets
+        self.app.sheets_handler.update_observations(ts_str, new_text)
+        
+        # Desabilitar edição
+        self.obs_text.config(state='disabled')
+        self.edit_btn.config(state='normal')
+        self.confirm_btn.config(state='disabled')
+        self.cancel_btn.config(state='disabled')
+        self.edit_mode = False
+        
+        messagebox.showinfo("Sucesso", "Observações atualizadas com sucesso!")
+        
+    def cancel_edit(self):
+        # Restaurar texto original
+        self.obs_text.delete('1.0', 'end')
+        self.obs_text.insert('1.0', self.original_text)
+        
+        # Desabilitar edição
+        self.obs_text.config(state='disabled')
+        self.edit_btn.config(state='normal')
+        self.confirm_btn.config(state='disabled')
+        self.cancel_btn.config(state='disabled')
+        self.edit_mode = False

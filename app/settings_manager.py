@@ -151,6 +151,7 @@ class SettingsManager:
         views = [
             ("Aguardando aprovação", "Aguardando aprovação"),
             ("Aceitas", "Aceitas"),
+            ("Aguardando documentos", "Aguardando documentos"),
             ("Pronto para pagamento", "Pronto para pagamento")
         ]
         row_index = row_start_col
@@ -398,18 +399,22 @@ class SettingsManager:
         label = tb.Label(template_window, text=f"Modelo de E-mail: {motivo}", font=("Helvetica", 12))
         label.pack(pady=10)
 
-        text_widget = tb.ScrolledText(template_window, width=70, height=15)
-        text_widget.pack(pady=10, padx=10)
+        frame = tb.Frame(template_window)
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        text_widget = tb.ScrolledText(frame, width=70, height=15)
+        text_widget.pack(fill="both", expand=True, side="top")
+
+        save_button = tb.Button(frame, text="Salvar", bootstyle=SUCCESS, width=BTN_WIDTH, command=lambda: save_template(template_window, text_widget, motivo))
+        save_button.pack(side="bottom", pady=10)
+
         text_widget.insert('1.0', self.app.email_templates[motivo])
 
-        def save_template():
+        def save_template(window, text_widget, motivo):
             new_template = text_widget.get("1.0", 'end').strip()
             self.app.email_templates[motivo] = new_template
             self.app.save_email_templates()
-            template_window.destroy()
-
-        save_button = tb.Button(template_window, text="Salvar", bootstyle=SUCCESS, width=BTN_WIDTH, command=save_template)
-        save_button.pack(pady=10)
+            window.destroy()
 
     def user_management(self):
         um_window = tb.Toplevel(self.app.root)

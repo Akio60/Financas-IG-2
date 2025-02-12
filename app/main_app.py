@@ -28,9 +28,6 @@ class App:
         self.user_role = user_role
         self.user_name = user_name
 
-        # CHANGED: Removemos qualquer chamada/flag de IDs. O aplicativo não irá mais gerar IDs localmente.
-        # self.ids_assigned = False
-
         # Variáveis de controle
         self.detail_columns_to_display = ALL_COLUMNS_DETAIL.copy()
         self.columns_to_display = []
@@ -106,8 +103,6 @@ class App:
                 'Valor'
             ]
         }
-
-    # CHANGED: Removemos o método ensure_sequential_ids() e qualquer outro que atualize/manipule IDs, pois agora isso será feito via Apps Script.
 
     def load_email_templates(self):
         try:
