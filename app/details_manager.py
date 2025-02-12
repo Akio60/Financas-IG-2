@@ -8,6 +8,7 @@ import json
 import os
 import uuid
 import pandas as pd  # Adicionando import do pandas
+import logger_app
 
 NOTIFICATION_CARGOS_FILE = "notification_cargos.json"
 USERS_DB_FILE = "users_db.json"
@@ -246,10 +247,20 @@ class DetailsManager:
                                 return
                             new_status = 'Autorizado'
                             ts_str = row_data['Carimbo de data/hora']
-                            self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
-                            self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name)
-                            self.notify_next_responsible("Autorizado", row_data)
-                            self.ask_send_email(row_data, new_status, new_value)
+                            
+                            # Primeiro atualiza o status e valor
+                            if not self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                                messagebox.showerror("Erro", "Falha ao atualizar status")
+                                return
+                            if not self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name):
+                                messagebox.showerror("Erro", "Falha ao atualizar valor")
+                                return
+                            
+                            # Pergunta sobre os emails
+                            self.ask_send_email(row_data, new_status, new_value)  # Email para o cliente
+                            self.ask_send_notification_emails(new_status, row_data)  # Email para os notificados
+                            
+                            # Atualiza a interface
                             self.app.update_table()
                             self.app.go_to_home()
 
@@ -322,29 +333,97 @@ class DetailsManager:
             self.show_details_in_new_window(selected_row)
 
     def notify_next_responsible(self, event_key, row_data):
-        notif_cfg = load_notification_cargos()
-        cargo = notif_cfg.get(event_key, None)
-        if not cargo:
-            return
-        users_db = load_users_db()
-        recipients = []
-        for u, info in users_db.items():
-            if info.get('role') == cargo:
-                recipients.append(info.get('email'))
+        """Função que agora apenas chama o método de confirmação"""
+        self.ask_send_notification_emails(event_key, row_data)
 
-        if not recipients:
-            return
+    def ask_send_notification_emails(self, event_key, row_data):
+        """Pergunta se deseja enviar emails de notificação e mostra preview"""
+        try:
+            notification_emails = self.app.sheets_handler.get_notification_emails()
+            recipients = notification_emails.get(event_key, [])
+            
+            if not recipients:
+                logger_app.log_warning(f"Nenhum email configurado para notificação do evento: {event_key}")
+                return
 
-        subject = f"Notificação de Requerimento [{event_key}]"
-        body = (
-            f"Prezado(s),\n\n"
-            f"O requerimento de {row_data.get('Nome completo (sem abreviações):', 'Desconhecido')} mudou para status '{event_key}'.\n"
-            f"Verifique o sistema.\n\n"
-            f"Atenciosamente,\nSistema Financeiro"
-        )
-        for r in recipients:
-            if r:
-                self.app.email_sender.send_email(r, subject, body)
+            confirm = messagebox.askyesno(
+                "Enviar Notificações",
+                f"Deseja enviar emails de notificação para os responsáveis? ({len(recipients)} destinatário(s))"
+            )
+            
+            if not confirm:
+                return
+
+            # Janela de preview do email
+            preview_window = tb.Toplevel(self.app.root)
+            preview_window.title("Preview - Email de Notificação")
+            preview_window.geometry("600x500")
+
+            # Lista de destinatários
+            recipient_frame = tb.LabelFrame(preview_window, text="Destinatários", padding=10)
+            recipient_frame.pack(fill="x", padx=10, pady=5)
+            
+            for email in recipients:
+                tb.Label(recipient_frame, text=email.strip()).pack(anchor="w")
+
+            # Preview do email
+            body_frame = tb.LabelFrame(preview_window, text="Corpo do Email", padding=10)
+            body_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+            body_text = tb.ScrolledText(body_frame, width=60, height=15)
+            body_text.pack(fill="both", expand=True)
+
+            subject = f"[Sistema Financeiro] Nova solicitação - Status: {event_key}"
+            body = (
+                f"Prezado(s),\n\n"
+                f"Uma solicitação mudou de status e requer sua atenção.\n\n"
+                f"Detalhes da solicitação:\n"
+                f"- Status: {event_key}\n"
+                f"- ID: {row_data.get('Id', 'N/A')}\n"
+                f"- Solicitante: {row_data.get('Nome completo (sem abreviações):', 'N/A')}\n"
+                f"- CPF: {row_data.get('CPF:', 'N/A')}\n"
+                f"- Valor: R$ {row_data.get('Valor', '0,00')}\n"
+                f"- Motivo: {row_data.get('Motivo da solicitação', 'N/A')}\n"
+                f"- Data da solicitação: {row_data.get('Carimbo de data/hora', 'N/A')}\n\n"
+                f"Por favor, acesse o sistema para verificar os detalhes completos e tomar as ações necessárias.\n\n"
+                f"Atenciosamente,\nSistema Financeiro"
+            )
+
+            body_text.insert('1.0', body)
+            body_text.config(state='disabled')
+
+            def send_notifications():
+                success = False
+                for email in recipients:
+                    if email and email.strip():
+                        try:
+                            self.app.email_sender.send_email(email.strip(), subject, body)
+                            logger_app.log_info(f"Email de notificação enviado para {email.strip()} - evento: {event_key}")
+                            success = True
+                        except Exception as e:
+                            logger_app.log_error(f"Erro ao enviar email para {email.strip()}: {str(e)})")
+                
+                if success:
+                    logger_app.log_info(f"Notificações enviadas com sucesso para o evento {event_key}")
+                    messagebox.showinfo("Sucesso", "Emails de notificação enviados com sucesso!")
+                else:
+                    logger_app.log_warning(f"Nenhuma notificação enviada para o evento {event_key}")
+                    messagebox.showwarning("Aviso", "Não foi possível enviar os emails de notificação")
+                
+                preview_window.destroy()
+
+            btn_frame = tb.Frame(preview_window)
+            btn_frame.pack(pady=10)
+
+            send_btn = tb.Button(btn_frame, text="Enviar Notificações", bootstyle=SUCCESS, command=send_notifications)
+            send_btn.pack(side=LEFT, padx=5)
+
+            cancel_btn = tb.Button(btn_frame, text="Cancelar", bootstyle=DANGER, command=preview_window.destroy)
+            cancel_btn.pack(side=LEFT, padx=5)
+
+        except Exception as e:
+            logger_app.log_error(f"Erro ao processar notificações: {str(e)}")
+            messagebox.showerror("Erro", "Erro ao processar notificações")
 
     def add_actions_tab(self, notebook, row_data):
         view = self.app.current_view
@@ -377,25 +456,51 @@ class DetailsManager:
                 if confirm:
                     new_status = 'Cancelado'
                     ts_str = row_data['Carimbo de data/hora']
-                    self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
+                    if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                        # Primeiro notifica os responsáveis
+                        self.ask_send_notification_emails("Cancelado", row_data)
+                        
+                        # Depois envia email para o solicitante
+                        subject = "Auxílio Cancelado"
+                        body = (
+                            f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
+                            f"Seu auxílio foi cancelado.\n\n"
+                            f"Atenciosamente,\nEquipe Financeira"
+                        )
+                        self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
+                        self.app.update_table()
+                        self.app.go_to_home()
+                    else:
+                        messagebox.showerror("Erro", "Falha ao atualizar status")
 
-                    subject = "Auxílio Cancelado"
-                    body = (
-                        f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
-                        f"Seu auxílio foi cancelado.\n\n"
-                        f"Atenciosamente,\nEquipe Financeira"
-                    )
+            def authorize_payment():
+                if role not in ["A3", "A5"]:
+                    messagebox.showwarning("Permissão Negada", "Somente A3 ou A5.")
+                    return
+                new_status = 'Pronto para pagamento'
+                ts_str = row_data['Carimbo de data/hora']
+                if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                    # Primeiro notifica os responsáveis
+                    self.ask_send_notification_emails("ProntoPagamento", row_data)
+                    
+                    # Depois envia email para o solicitante
+                    email_template = self.app.email_templates.get('Aprovação', 'Sua solicitação foi aprovada.')
+                    subject = "Pagamento Autorizado"
+                    body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
                     self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
                     self.app.update_table()
                     self.app.go_to_home()
-                    
-                    
+                else:
+                    messagebox.showerror("Erro", "Falha ao atualizar status")
 
             req_btn = tb.Button(actions_tab, text="Requerir Documentos", bootstyle=WARNING, command=request_documents)
             req_btn.pack(pady=10)
 
             cancel_btn = tb.Button(actions_tab, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=cancel_auxilio)
             cancel_btn.pack(pady=10)
+
+            auth_btn = tb.Button(actions_tab, text="Autorizar Pagamento", bootstyle=SUCCESS, command=authorize_payment)
+            auth_btn.pack(pady=10)
         
         elif view == "Aguardando documentos":
             
@@ -421,15 +526,19 @@ class DetailsManager:
                     return
                 new_status = 'Pronto para pagamento'
                 ts_str = row_data['Carimbo de data/hora']
-                self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
-                self.notify_next_responsible("Pronto para pagamento", row_data)
-
-                email_template = self.app.email_templates.get('Aprovação', 'Sua solicitação foi aprovada.')
-                subject = "Pagamento Autorizado"
-                body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
-                self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
-                self.app.update_table()
-                self.app.go_to_home()
+                if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                    # Primeiro notifica os responsáveis
+                    self.ask_send_notification_emails("ProntoPagamento", row_data)
+                    
+                    # Depois envia email para o solicitante
+                    email_template = self.app.email_templates.get('Aprovação', 'Sua solicitação foi aprovada.')
+                    subject = "Pagamento Autorizado"
+                    body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
+                    self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
+                    self.app.update_table()
+                    self.app.go_to_home()
+                else:
+                    messagebox.showerror("Erro", "Falha ao atualizar status")
 
             def cancel_auxilio():
                 if role not in ["A3", "A5"]:
@@ -439,17 +548,22 @@ class DetailsManager:
                 if confirm:
                     new_status = 'Cancelado'
                     ts_str = row_data['Carimbo de data/hora']
-                    self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
-
-                    subject = "Auxílio Cancelado"
-                    body = (
-                        f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
-                        f"Seu auxílio foi cancelado.\n\n"
-                        f"Atenciosamente,\nEquipe Financeira"
-                    )
-                    self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
-                    self.app.update_table()
-                    self.app.go_to_home()
+                    if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                        # Primeiro notifica os responsáveis
+                        self.ask_send_notification_emails("Cancelado", row_data)
+                        
+                        # Depois envia email para o solicitante
+                        subject = "Auxílio Cancelado"
+                        body = (
+                            f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
+                            f"Seu auxílio foi cancelado.\n\n"
+                            f"Atenciosamente,\nEquipe Financeira"
+                        )
+                        self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
+                        self.app.update_table()
+                        self.app.go_to_home()
+                    else:
+                        messagebox.showerror("Erro", "Falha ao atualizar status")
 
             req_btn = tb.Button(actions_tab, text="Requerir Documentos", bootstyle=WARNING, command=request_documents)
             req_btn.pack(pady=10)
@@ -467,14 +581,19 @@ class DetailsManager:
                     return
                 new_status = 'Pago'
                 ts_str = row_data['Carimbo de data/hora']
-                self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
-
-                email_template = self.app.email_templates.get('Pagamento', 'Seu pagamento foi efetuado.')
-                subject = "Pagamento Efetuado"
-                body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
-                self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
-                self.app.update_table()
-                self.app.back_to_main_view()
+                if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                    # Primeiro notifica os responsáveis (opcional para pagamento)
+                    self.ask_send_notification_emails("Pago", row_data)
+                    
+                    # Depois envia email para o solicitante
+                    email_template = self.app.email_templates.get('Pagamento', 'Seu pagamento foi efetuado.')
+                    subject = "Pagamento Efetuado"
+                    body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
+                    self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
+                    self.app.update_table()
+                    self.app.back_to_main_view()
+                else:
+                    messagebox.showerror("Erro", "Falha ao atualizar status")
 
             def cancel_auxilio():
                 if role not in ["A3", "A5"]:
@@ -484,17 +603,22 @@ class DetailsManager:
                 if confirm:
                     new_status = 'Cancelado'
                     ts_str = row_data['Carimbo de data/hora']
-                    self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
-
-                    subject = "Auxílio Cancelado"
-                    body = (
-                        f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
-                        f"Seu auxílio foi cancelado.\n\n"
-                        f"Atenciosamente,\nEquipe Financeira"
-                    )
-                    self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
-                    self.app.update_table()
-                    self.app.back_to_main_view()
+                    if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                        # Primeiro notifica os responsáveis
+                        self.ask_send_notification_emails("Cancelado", row_data)
+                        
+                        # Depois envia email para o solicitante
+                        subject = "Auxílio Cancelado"
+                        body = (
+                            f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
+                            f"Seu auxílio foi cancelado.\n\n"
+                            f"Atenciosamente,\nEquipe Financeira"
+                        )
+                        self.send_custom_email(row_data['Endereço de e-mail'], subject, body)
+                        self.app.update_table()
+                        self.app.back_to_main_view()
+                    else:
+                        messagebox.showerror("Erro", "Falha ao atualizar status")
 
             payment_btn = tb.Button(actions_tab, text="Pagamento Efetuado", bootstyle=SUCCESS, command=payment_made)
             payment_btn.pack(pady=10)

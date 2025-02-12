@@ -25,24 +25,33 @@ class EmailSender:
 
     def _send_email_thread(self, recipient, subject, body):
         try:
-            # Verifica se a senha foi configurada; se não, gera um erro.
             if not self.sender_password:
                 raise ValueError("Senha do remetente não configurada. Verifique a variável de ambiente.")
+
+            if not recipient or not subject or not body:
+                raise ValueError("Recipient, subject e body são obrigatórios")
 
             msg = MIMEMultipart()
             msg['From'] = self.sender_email
             msg['To'] = recipient
             msg['Subject'] = subject
-            msg.attach(MIMEText(body, 'plain'))
+            msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
-            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
-            server.starttls()
-            server.login(self.sender_email, self.sender_password)
-            server.sendmail(self.sender_email, recipient, msg.as_string())
-            server.quit()
+            server = None
+            try:
+                server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+                server.starttls()
+                server.login(self.sender_email, self.sender_password)
+                server.sendmail(self.sender_email, recipient, msg.as_string())
+                logger_app.log_info(f"E-mail enviado com sucesso para {recipient}")
+                messagebox.showinfo("Sucesso", f"E-mail enviado com sucesso para {recipient}!")
+            except Exception as e:
+                raise Exception(f"Erro ao enviar email: {str(e)}")
+            finally:
+                if server:
+                    server.quit()
 
-            logger_app.log_info(f"E-mail enviado para {recipient} - assunto: {subject}")
-            messagebox.showinfo("Sucesso", f"E-mail enviado com sucesso para {recipient}!")
         except Exception as e:
-            logger_app.log_error(f"Erro ao enviar e-mail: {e}")
-            messagebox.showerror("Erro", f"Erro ao enviar o e-mail: {e}")
+            error_msg = f"Erro ao enviar e-mail: {str(e)}"
+            logger_app.log_error(error_msg)
+            messagebox.showerror("Erro", error_msg)

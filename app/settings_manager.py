@@ -506,37 +506,68 @@ class SettingsManager:
         rem_btn.pack(side=LEFT, padx=5)
 
     def setup_notification_cargos(self):
-        cfg_window = tb.Toplevel(self.app.root)
-        cfg_window.title("Configurar Cargo de Notificação")
-        cfg_window.geometry("400x300")
+        notif_window = tb.Toplevel(self.app.root)
+        notif_window.title("Configurar Emails de Notificação")
+        notif_window.geometry("600x500")
 
-        lbl = tb.Label(cfg_window, text="Defina qual cargo receberá notificação para cada evento:", font=("Helvetica", 10, "bold"))
-        lbl.pack(pady=5)
+        notification_emails = self.app.sheets_handler.get_notification_emails()
 
-        notif_cfg = load_notification_cargos()
+        # Frame principal com scroll
+        main_frame = tb.Frame(notif_window)
+        main_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
 
-        frame_events = tb.Frame(cfg_window)
-        frame_events.pack(fill="both", expand=True, padx=10, pady=10)
+        # Criar frames para cada tipo de notificação
+        for event_type in ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Autorizado"]:
+            frame = tb.LabelFrame(main_frame, text=event_type, padding=10)
+            frame.pack(fill=X, pady=5)
 
-        events = ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Autorizado"]
-        var_dict = {}
+            # Listbox para emails
+            listbox = tk.Listbox(frame, height=4)
+            listbox.pack(side=LEFT, fill=BOTH, expand=True)
+            
+            # Preencher listbox com emails existentes
+            for email in notification_emails.get(event_type, []):
+                if email.strip():
+                    listbox.insert(END, email.strip())
 
-        row_idx = 0
-        for ev in events:
-            tb.Label(frame_events, text=ev).grid(row=row_idx, column=0, sticky='w', padx=5, pady=5)
-            import tkinter as tki
-            var = tki.StringVar(value=notif_cfg.get(ev, "A1"))
-            var_dict[ev] = var
-            entry = tki.Entry(frame_events, textvariable=var, width=5)
-            entry.grid(row=row_idx, column=1, sticky='w', padx=5, pady=5)
-            row_idx += 1
+            # Frame para botões
+            btn_frame = tb.Frame(frame)
+            btn_frame.pack(side=RIGHT, fill=Y, padx=5)
 
-        def save_notif():
-            for ev in events:
-                val = var_dict[ev].get().strip()
-                notif_cfg[ev] = val
-            save_notification_cargos(notif_cfg)
-            messagebox.showinfo("OK", "Notificação configurada.")
-            cfg_window.destroy()
+            def add_email(lb=listbox, et=event_type):
+                dialog = tb.Toplevel(notif_window)
+                dialog.title("Adicionar Email")
+                dialog.geometry("300x150")
 
-        tb.Button(cfg_window, text="Salvar", bootstyle=SUCCESS, command=save_notif).pack(pady=5)
+                tk.Label(dialog, text="Email:").pack(pady=5)
+                email_var = tk.StringVar()
+                entry = tk.Entry(dialog, textvariable=email_var, width=40)
+                entry.pack(pady=5)
+
+                def save():
+                    email = email_var.get().strip()
+                    if email:
+                        lb.insert(END, email)
+                        # Atualizar na planilha
+                        emails = list(lb.get(0, END))
+                        self.app.sheets_handler.update_notification_emails(et, emails)
+                    dialog.destroy()
+
+                tb.Button(dialog, text="Adicionar", bootstyle=SUCCESS, command=save).pack(pady=10)
+
+            def remove_email(lb=listbox, et=event_type):
+                selection = lb.curselection()
+                if selection:
+                    lb.delete(selection)
+                    # Atualizar na planilha
+                    emails = list(lb.get(0, END))
+                    self.app.sheets_handler.update_notification_emails(et, emails)
+
+            tb.Button(btn_frame, text="Adicionar", bootstyle=SUCCESS, 
+                     command=lambda l=listbox, e=event_type: add_email(l, e)).pack(pady=2)
+            tb.Button(btn_frame, text="Remover", bootstyle=DANGER, 
+                     command=lambda l=listbox, e=event_type: remove_email(l, e)).pack(pady=2)
+
+        # Botão de fechar
+        tb.Button(notif_window, text="Fechar", bootstyle=PRIMARY, 
+                 command=notif_window.destroy).pack(pady=10)

@@ -66,6 +66,7 @@ def log_info(message):
 def log_warning(message):
     """
     Registra uma mensagem de nível WARNING na aba "Info".
+    
     """
     append_log(info_sheet, "WARNING", message)
 
