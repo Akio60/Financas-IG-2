@@ -117,8 +117,10 @@ class DetailsManager:
             tab_frame = tb.Frame(notebook)
             notebook.add(tab_frame, text=section_name)
 
-            tab_frame.columnconfigure(0, weight=1, minsize=200)
-            tab_frame.columnconfigure(1, weight=3)
+            # Configuração consistente do grid
+            tab_frame.columnconfigure(0, weight=1, minsize=300)  # Coluna dos labels
+            tab_frame.columnconfigure(1, weight=3, minsize=400)  # Coluna dos valores
+
             row_idx = 0
             for col in fields:
                 if col in row_data:
@@ -192,12 +194,39 @@ class DetailsManager:
                         continue
                     else:
                         display_label = self.FORM_FIELD_MAPPING.get(col, col)
-                        label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
-                        label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
                         
+                        # Frame para conter cada par label-valor
+                        field_frame = tb.Frame(tab_frame)
+                        field_frame.grid(row=row_idx, column=0, columnspan=2, sticky='ew', padx=20, pady=5)
+                        
+                        # Configuração do grid do field_frame
+                        field_frame.columnconfigure(0, minsize=300, weight=0)  # Largura fixa para labels
+                        field_frame.columnconfigure(1, weight=1)   # Valor expande
+                        
+                        # Label com wrapping
+                        label = tb.Label(
+                            field_frame, 
+                            text=f"{display_label}:", 
+                            font=("Helvetica", 12, "bold"),
+                            wraplength=280,  # Permite quebra de texto
+                            justify="left"    # Alinha o texto quebrado à esquerda
+                        )
+                        label.grid(row=0, column=0, sticky='nw', padx=(0,20))
+                        
+                        # Valor com wrapping
                         value_text = str(row_data[col])
-                        value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
-                        value.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
+                        value = tb.Label(
+                            field_frame, 
+                            text=value_text, 
+                            font=("Helvetica", 12),
+                            wraplength=400,  # Permite quebra de texto
+                            justify="left",   # Alinha o texto quebrado à esquerda
+                        )
+                        value.grid(row=0, column=1, sticky='nw')
+                        
+                        # Configura o grid para expandir na vertical se necessário
+                        field_frame.grid_rowconfigure(0, weight=1)
+                        
                     row_idx += 1
 
             if section_name == "Informações Financeiras":
@@ -531,12 +560,30 @@ class DetailsManager:
             for col in fields:
                 if col in row_data:
                     display_label = self.FORM_FIELD_MAPPING.get(col, col)
-                    label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
-                    label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
+                    
+                    # Ajuste para janela de detalhes pop-up
+                    label = tb.Label(
+                        tab_frame, 
+                        text=f"{display_label}:", 
+                        font=("Helvetica", 12, "bold"),
+                        wraplength=250,
+                        justify="left"
+                    )
+                    label.grid(row=row_idx, column=0, sticky='nw', padx=10, pady=5)
 
                     value_text = str(row_data[col])
-                    value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
-                    value.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
+                    value = tb.Label(
+                        tab_frame, 
+                        text=value_text, 
+                        font=("Helvetica", 12),
+                        wraplength=350,
+                        justify="left"
+                    )
+                    value.grid(row=row_idx, column=1, sticky='nw', padx=10, pady=5)
+                    
+                    # Configura o grid para expandir na vertical
+                    tab_frame.grid_rowconfigure(row_idx, weight=1)
+                    
                     row_idx += 1
 
         close_button = tb.Button(detail_frame, text="Fechar", bootstyle=PRIMARY, command=detail_window.destroy)
