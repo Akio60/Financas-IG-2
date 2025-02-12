@@ -540,7 +540,9 @@ class DetailsManager:
                 'Local de realização do evento',
                 'Período de realização da atividade. Indique as datas (dd/mm/aaaa)',
                 'Descrever detalhadamente os itens a serem financiados...',
-                'Valor solicitado. Somente valor, sem pontos e vírgula'
+                'Valor solicitado. Somente valor, sem pontos e vírgula',
+                'Descrever a solicitação resumidamente',
+                'Observações'
             ],
             "Informações Financeiras": [
                 'Valor',

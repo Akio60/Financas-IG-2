@@ -48,8 +48,11 @@ class GoogleSheetsHandler:
                 if user_name and 'Ultima modificação' in self.column_indices:
                     self.sheet.update_cell(row_number, self.column_indices['Ultima modificação'], user_name)
 
-                # Logamos a mudança
-                logger_app.log_info(f"update_status: {user_name} mudou status para {new_status}, timestamp={timestamp_value}")
+                # Obtém o ID da solicitação
+                id_value = self.sheet.cell(row_number, self.column_indices.get('Id', 1)).value
+                
+                # Log incluindo o ID da solicitação
+                logger_app.log_info(f"update_status: {user_name} mudou status para {new_status}, ID={id_value}, timestamp={timestamp_value}")
                 return True
         return False
 
@@ -66,7 +69,11 @@ class GoogleSheetsHandler:
                 if user_name and 'Ultima modificação' in self.column_indices:
                     self.sheet.update_cell(row_number, self.column_indices['Ultima modificação'], user_name)
 
-                logger_app.log_info(f"update_value: {user_name} alterou valor para {new_value}, timestamp={timestamp_value}")
+                
+                # Obtém o ID da solicitação
+                id_value = self.sheet.cell(row_number, self.column_indices.get('Id', 1)).value
+                
+                logger_app.log_info(f"update_value: {user_name} alterou valor para {new_value}, ID={id_value}, timestamp={timestamp_value}")
                 return True
         return False
 
