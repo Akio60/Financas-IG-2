@@ -182,9 +182,28 @@ class SettingsManager:
         infobox_label = tb.Label(col2, text=infobox_text, font=("Helvetica", 9), foreground="gray", wraplength=300)
         infobox_label.grid(row=1, column=0, sticky='w', pady=5)
 
+        # Lista completa de todos os templates disponíveis
+        templates_order = [
+            "Trabalho de Campo",
+            "Participação em eventos",
+            "Visita técnica",
+            "Outros",
+            "Aprovação",
+            "Pagamento",
+            "Cancelamento", 
+            "ProntoPagamento",
+            "AguardandoDocumentacao"
+        ]
+
         row_index2 = 2
-        for motivo in self.app.email_templates.keys():
-            button = tb.Button(col2, text=motivo, bootstyle=SECONDARY, width=BTN_WIDTH, command=lambda m=motivo: self.edit_email_template(m))
+        for template_name in templates_order:
+            button = tb.Button(
+                col2, 
+                text=f"Template: {template_name}", 
+                bootstyle=SECONDARY,
+                width=BTN_WIDTH,
+                command=lambda t=template_name: self.edit_email_template(t)
+            )
             button.grid(row=row_index2, column=0, sticky='w', pady=5)
             row_index2 += 1
 

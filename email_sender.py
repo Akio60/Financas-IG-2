@@ -31,11 +31,28 @@ class EmailSender:
             if not recipient or not subject or not body:
                 raise ValueError("Recipient, subject e body são obrigatórios")
 
-            msg = MIMEMultipart()
+            # Converte o body para HTML com formatação melhorada
+            html_body = (
+                f'<html>'
+                f'<body style="font-family: Arial, sans-serif; line-height: 1.6;">'
+                f'<div style="max-width: 600px; margin: 0 auto; padding: 20px;">'
+                f'<div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">'
+                f'{body.replace(chr(10), "<br>")}'
+                f'</div>'
+                f'<div style="margin-top: 20px; font-size: 12px; color: #6c757d;">'
+                f'<p>Este é um email automático do Sistema Financeiro IG-UNICAMP.</p>'
+                f'</div>'
+                f'</div>'
+                f'</body>'
+                f'</html>'
+            )
+            
+            msg = MIMEMultipart('alternative')
             msg['From'] = self.sender_email
             msg['To'] = recipient
             msg['Subject'] = subject
             msg.attach(MIMEText(body, 'plain', 'utf-8'))
+            msg.attach(MIMEText(html_body, 'html'))
 
             server = None
             try:
