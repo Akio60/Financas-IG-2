@@ -130,16 +130,26 @@ class DetailsManager:
                     if col == 'Observações':
                         # Frame para conter a caixa de texto e botões
                         obs_frame = tb.Frame(tab_frame)
-                        obs_frame.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
-
+                        obs_frame.grid(row=row_idx, column=0, columnspan=2, sticky='nsew', padx=20, pady=5)
+                        
+                        # Configurar grid do obs_frame
+                        obs_frame.columnconfigure(0, weight=4)  # Coluna da caixa de texto
+                        obs_frame.columnconfigure(1, weight=1)  # Coluna dos botões
+                        
                         # Caixa de texto para observações
-                        self.obs_text = Text(obs_frame, width=40, height=4, state='disabled')
-                        self.obs_text.pack(side='left', padx=(0, 10))
+                        self.obs_text = Text(obs_frame, height=4, state='disabled')
+                        self.obs_text.grid(row=0, column=0, sticky='nsew')
                         self.obs_text.insert('1.0', str(row_data[col]))
                         
                         # Frame para botões
                         btn_frame = tb.Frame(obs_frame)
-                        btn_frame.pack(side='left', fill='y')
+                        btn_frame.grid(row=0, column=1, sticky='nsew', padx=(10, 0))
+                        
+                        # Configurar grid do btn_frame para distribuir os botões igualmente
+                        btn_frame.rowconfigure(0, weight=1)
+                        btn_frame.rowconfigure(1, weight=1)
+                        btn_frame.rowconfigure(2, weight=1)
+                        btn_frame.columnconfigure(0, weight=1)
                         
                         # Botão de editar
                         self.edit_btn = tb.Button(
@@ -148,9 +158,9 @@ class DetailsManager:
                             bootstyle=PRIMARY,
                             command=lambda: self.toggle_edit_mode(row_data)
                         )
-                        self.edit_btn.pack(pady=2)
+                        self.edit_btn.grid(row=0, column=0, sticky='nsew', pady=2)
                         
-                        # Botões de confirmar e cancelar (inicialmente ocultos)
+                        # Botões de confirmar e cancelar (inicialmente desabilitados)
                         self.confirm_btn = tb.Button(
                             btn_frame,
                             text="Confirmar",
@@ -158,7 +168,7 @@ class DetailsManager:
                             command=lambda: self.save_observations(row_data),
                             state='disabled'
                         )
-                        self.confirm_btn.pack(pady=2)
+                        self.confirm_btn.grid(row=1, column=0, sticky='nsew', pady=2)
                         
                         self.cancel_btn = tb.Button(
                             btn_frame,
@@ -167,7 +177,7 @@ class DetailsManager:
                             command=self.cancel_edit,
                             state='disabled'
                         )
-                        self.cancel_btn.pack(pady=2)
+                        self.cancel_btn.grid(row=2, column=0, sticky='nsew', pady=2)
                     else:
                         value_text = str(row_data[col])
                         value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
