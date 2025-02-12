@@ -119,27 +119,35 @@ class DetailsManager:
 
             tab_frame.columnconfigure(0, weight=1, minsize=200)
             tab_frame.columnconfigure(1, weight=3)
-
             row_idx = 0
             for col in fields:
                 if col in row_data:
-                    display_label = self.FORM_FIELD_MAPPING.get(col, col)
-                    label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
-                    label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
-
                     if col == 'Observações':
+                        # Label de título acima do frame
+                        display_label = self.FORM_FIELD_MAPPING.get(col, col)
+                        title_label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
+                        title_label.grid(row=row_idx, column=0, columnspan=2, sticky='w', padx=20, pady=(10,0))  # Aumenta o pady superior
+                        row_idx += 1
+
                         # Frame para conter a caixa de texto e botões
                         obs_frame = tb.Frame(tab_frame)
-                        obs_frame.grid(row=row_idx, column=0, columnspan=2, sticky='nsew', padx=20, pady=5)
+                        obs_frame.grid(row=row_idx, column=0, columnspan=2, sticky='nsew', padx=20, pady=(30,50))  # Aumenta o pady superior
                         
                         # Configurar grid do obs_frame
-                        obs_frame.columnconfigure(0, weight=4)  # Coluna da caixa de texto
+                        obs_frame.columnconfigure(0, weight=5)  # Coluna da caixa de texto
                         obs_frame.columnconfigure(1, weight=1)  # Coluna dos botões
                         
-                        # Caixa de texto para observações
-                        self.obs_text = Text(obs_frame, height=4, state='disabled')
+                        # Caixa de texto para observações com o texto atual
+                        self.obs_text = Text(obs_frame, height=4, state='normal')
                         self.obs_text.grid(row=0, column=0, sticky='nsew')
-                        self.obs_text.insert('1.0', str(row_data[col]))
+                        
+                        # Inserir o texto das observações da planilha
+                        observation_text = row_data.get('Observações', '')
+                        if observation_text is None:
+                            observation_text = ''
+                        self.obs_text.delete('1.0', 'end')
+                        self.obs_text.insert('1.0', str(observation_text))
+                        self.obs_text.config(state='disabled')
                         
                         # Frame para botões
                         btn_frame = tb.Frame(obs_frame)
@@ -178,7 +186,15 @@ class DetailsManager:
                             state='disabled'
                         )
                         self.cancel_btn.grid(row=2, column=0, sticky='nsew', pady=2)
+                        
+                        # Incrementa row_idx para o próximo item
+                        row_idx += 1
+                        continue
                     else:
+                        display_label = self.FORM_FIELD_MAPPING.get(col, col)
+                        label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
+                        label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
+                        
                         value_text = str(row_data[col])
                         value = tb.Label(tab_frame, text=value_text, font=("Helvetica", 12))
                         value.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
