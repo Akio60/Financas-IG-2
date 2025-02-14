@@ -222,14 +222,6 @@ class App:
         )
         self.statistics_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
 
-        self.log_history_button = tb.Button(
-            bottom_buttons_frame,
-            text="Histórico de alterações",
-            bootstyle=OUTLINE,
-            command=self.show_logs  # Mudado para usar show_logs diretamente
-        )
-        self.log_history_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
-
         self.view_all_button = tb.Button(
             bottom_buttons_frame,
             text="Histórico de solicitações",
