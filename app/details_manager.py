@@ -235,33 +235,17 @@ class DetailsManager:
                             new_status = 'Solicitação Aceita'
                             ts_str = row_data['Carimbo de data/hora']
                             
-                            # Primeiro atualiza o status e valor
-                            if not self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
-                                messagebox.showerror("Erro", "Falha ao atualizar status")
-                                return
-                            if not self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name):
-                                messagebox.showerror("Erro", "Falha ao atualizar valor")
-                                return
-                            
-                            # Prepara dados de notificação
+                            # Removida atualização direta do status e valor
                             notification_data = self.prepare_notification_data(new_status, row_data)
-                            
-                            # Mostra janela unificada de emails
                             self.unified_email_window(row_data, new_status, notification_data, new_value)
-                            
-                            # Atualiza a interface
-                            self.app.update_table()
-                            self.app.go_to_home()
 
                         def negar_auxilio():
                             confirm = messagebox.askyesno("Confirmação", "Tem certeza que deseja recusar/cancelar o auxílio?")
                             if confirm:
                                 new_status = 'Cancelado'
-                                ts_str = row_data['Carimbo de data/hora']
-                                self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
-                                self.notify_next_responsible("Cancelado", row_data)
-                                self.app.update_table()
-                                self.app.go_to_home()
+                                # Removida atualização direta do status
+                                notification_data = self.prepare_notification_data("Cancelado", row_data)
+                                self.unified_email_window(row_data, new_status, notification_data)
 
                         autorizar_button = tb.Button(tab_frame, text="Autorizar Auxílio", bootstyle=SUCCESS, command=autorizar_auxilio)
                         negar_button = tb.Button(tab_frame, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=negar_auxilio)
@@ -350,13 +334,9 @@ class DetailsManager:
             new_status = 'Pronto para pagamento'
             ts_str = row_data['Carimbo de data/hora']
             
-            if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
-                notification_data = self.prepare_notification_data("ProntoPagamento", row_data)
-                self.unified_email_window(row_data, new_status, notification_data)
-                self.app.update_table()
-                self.app.go_to_home()
-            else:
-                messagebox.showerror("Erro", "Falha ao atualizar status")
+            # Removida atualização direta do status
+            notification_data = self.prepare_notification_data("ProntoPagamento", row_data)
+            self.unified_email_window(row_data, new_status, notification_data)
 
         def cancel_auxilio():
             if role not in ["A3", "A5"]:
@@ -366,30 +346,18 @@ class DetailsManager:
             confirm = messagebox.askyesno("Confirmar", "Tem certeza que deseja recusar/cancelar o auxílio?")
             if confirm:
                 new_status = 'Cancelado'
-                ts_str = row_data['Carimbo de data/hora']
-                
-                if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
-                    notification_data = self.prepare_notification_data("Cancelado", row_data)
-                    self.unified_email_window(row_data, new_status, notification_data)
-                    self.app.update_table()
-                    self.app.go_to_home()
-                else:
-                    messagebox.showerror("Erro", "Falha ao atualizar status")
+                # Removida atualização direta do status
+                notification_data = self.prepare_notification_data("Cancelado", row_data)
+                self.unified_email_window(row_data, new_status, notification_data)
 
         def payment_made():
             if role not in ["A3", "A4", "A5"]:
                 messagebox.showwarning("Negado", "Você não tem permissão para efetuar pagamento.")
                 return
             new_status = 'Pago'
-            ts_str = row_data['Carimbo de data/hora']
-            
-            if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
-                notification_data = self.prepare_notification_data("Pago", row_data)
-                self.unified_email_window(row_data, new_status, notification_data)
-                self.app.update_table()
-                self.app.back_to_main_view()
-            else:
-                messagebox.showerror("Erro", "Falha ao atualizar status")
+            # Removida atualização direta do status
+            notification_data = self.prepare_notification_data("Pago", row_data)
+            self.unified_email_window(row_data, new_status, notification_data)
 
         # Layout centralizado por view
         if view == "Aceitas":
@@ -557,8 +525,103 @@ class DetailsManager:
         close_button = tb.Button(detail_frame, text="Fechar", bootstyle=PRIMARY, command=detail_window.destroy)
         close_button.pack(pady=10)
 
+    def send_emails_and_update_status(self, emails_to_send, row_data, new_status=None, new_value=None):
+        """Função unificada para enviar emails e atualizar status"""
+        
+        progress_window = tb.Toplevel(self.app.root)
+        progress_window.title("Enviando Emails")
+        progress_window.geometry("500x400")
+        progress_window.transient(self.app.root)
+        progress_window.grab_set()
+
+        main_frame = tb.Frame(progress_window, padding=20)
+        main_frame.pack(fill=BOTH, expand=True)
+
+        list_frame = tb.LabelFrame(main_frame, text="Emails a serem enviados", padding=10)
+        list_frame.pack(fill=BOTH, expand=True)
+
+        columns = ("Destinatário", "Tipo", "Status")
+        tree = tb.Treeview(list_frame, columns=columns, show="headings", height=10)
+        for col in columns:
+            tree.heading(col, text=col)
+            tree.column(col, width=150)
+        tree.pack(fill=BOTH, expand=True)
+
+        for i, email in enumerate(emails_to_send):
+            tree.insert("", END, iid=str(i), values=(
+                email["recipient"], email["type"], "Pendente"
+            ))
+
+        progress = tb.Progressbar(
+            main_frame, 
+            bootstyle="success-striped",
+            maximum=len(emails_to_send)
+        )
+        progress.pack(fill=X, pady=10)
+
+        status_label = tb.Label(main_frame, text="Iniciando envio...")
+        status_label.pack(pady=5)
+
+        def process_emails():
+            all_success = True
+            success_count = 0
+
+            for i, email in enumerate(emails_to_send):
+                try:
+                    status_label.config(text=f"Enviando para {email['recipient']}...")
+                    self.app.email_sender.send_email(
+                        email["recipient"],
+                        email["subject"],
+                        email["body"]
+                    )
+                    tree.set(str(i), "Status", "✓ Enviado")
+                    success_count += 1
+                except Exception as e:
+                    logger_app.log_error(f"Erro ao enviar email: {str(e)}")
+                    tree.set(str(i), "Status", "✗ Erro")
+                    all_success = False
+
+                progress["value"] = i + 1
+                progress_window.update()
+
+            # Só atualiza o status se todos os emails foram enviados com sucesso
+            if all_success and new_status:
+                ts_str = row_data['Carimbo de data/hora']
+                if new_value:
+                    self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name)
+                self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
+                status_label.config(
+                    text=f"Concluído! {success_count} emails enviados. Status atualizado."
+                )
+            else:
+                status_label.config(
+                    text=f"Atenção! {success_count} de {len(emails_to_send)} emails enviados."
+                )
+
+            close_btn.config(state="normal")
+            
+            # Se todos os emails foram enviados com sucesso, fecha as janelas após 2 segundos
+            if all_success:
+                progress_window.after(2000, lambda: [
+                    progress_window.destroy(),
+                    self.app.update_table(),
+                    self.app.go_to_home()
+                ])
+
+        close_btn = tb.Button(
+            main_frame,
+            text="Fechar",
+            command=progress_window.destroy,
+            state="disabled"
+        )
+        close_btn.pack(pady=10)
+
+        import threading
+        thread = threading.Thread(target=process_emails)
+        thread.start()
+
     def unified_email_window(self, row_data, status_update, notification_data=None, value=None):
-        """Janela unificada com abas + progresso de envio"""
+        """Janela unificada com abas para preview dos emails"""
         email_window = tb.Toplevel(self.app.root)
         email_window.title("Gerenciamento de Emails")
         email_window.geometry("800x600")
@@ -667,79 +730,8 @@ class DetailsManager:
                         "type": "Notificação"
                     })
 
-            # Cria e mostra janela de progresso
-            progress_window = tb.Toplevel(email_window)
-            progress_window.title("Enviando Emails")
-            progress_window.geometry("500x400")
-            progress_window.transient(email_window)
-            progress_window.grab_set()
-
-            main_frame = tb.Frame(progress_window, padding=20)
-            main_frame.pack(fill=BOTH, expand=True)
-
-            list_frame = tb.LabelFrame(main_frame, text="Emails a serem enviados", padding=10)
-            list_frame.pack(fill=BOTH, expand=True)
-
-            columns = ("Destinatário", "Tipo", "Status")
-            tree = tb.Treeview(list_frame, columns=columns, show="headings", height=10)
-            for col in columns:
-                tree.heading(col, text=col)
-                tree.column(col, width=150)
-            tree.pack(fill=BOTH, expand=True)
-
-            for i, email in enumerate(emails_to_send):
-                tree.insert("", END, iid=str(i), values=(
-                    email["recipient"], email["type"], "Pendente"
-                ))
-
-            progress = tb.Progressbar(
-                main_frame, 
-                bootstyle="success-striped",
-                maximum=len(emails_to_send)
-            )
-            progress.pack(fill=X, pady=10)
-
-            status_label = tb.Label(main_frame, text="Iniciando envio...")
-            status_label.pack(pady=5)
-
-            def send_all_emails():
-                success_count = 0
-                for i, email in enumerate(emails_to_send):
-                    try:
-                        status_label.config(text=f"Enviando para {email['recipient']}...")
-                        self.app.email_sender.send_email(
-                            email["recipient"],
-                            email["subject"],
-                            email["body"]
-                        )
-                        tree.set(str(i), "Status", "✓ Enviado")
-                        success_count += 1
-                        
-                    except Exception as e:
-                        logger_app.log_error(f"Erro ao enviar email: {str(e)}")
-                        tree.set(str(i), "Status", "✗ Erro")
-
-                    progress["value"] = i + 1
-                    progress_window.update()
-
-                status_label.config(
-                    text=f"Concluído! {success_count} de {len(emails_to_send)} emails enviados."
-                )
-                close_btn.config(state="normal")
-                if success_count == len(emails_to_send):
-                    email_window.destroy()
-
-            close_btn = tb.Button(
-                main_frame,
-                text="Fechar",
-                command=lambda: [progress_window.destroy(), email_window.destroy()],
-                state="disabled"
-            )
-            close_btn.pack(pady=10)
-
-            import threading
-            thread = threading.Thread(target=send_all_emails)
-            thread.start()
+            email_window.destroy()
+            self.send_emails_and_update_status(emails_to_send, row_data, status_update, value)
 
         # Botões de ação
         btn_frame = tb.Frame(email_window)
@@ -847,14 +839,9 @@ class DetailsManager:
             return
             
         new_status = 'Aguardando documentação'
-        ts_str = row_data['Carimbo de data/hora']
-        
-        if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
-            # Prepara dados para notificação
-            notification_data = self.prepare_notification_data("AguardandoDocumentacao", row_data)
+        # Removida atualização direta do status
+        notification_data = self.prepare_notification_data("AguardandoDocumentacao", row_data)
+        self.unified_email_window(row_data, new_status, notification_data)
             
-            # Usa unified_email_window para consistência
-            self.unified_email_window(row_data, new_status, notification_data)
-            
-            self.app.update_table()
-            self.app.go_to_home()
+        self.app.update_table()
+        self.app.go_to_home()

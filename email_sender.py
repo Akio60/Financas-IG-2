@@ -66,7 +66,8 @@ class EmailSender:
                     subject=subject,
                     status="SUCCESS"
                 )
-                messagebox.showinfo("Sucesso", f"E-mail enviado com sucesso para {recipient}!")
+                # Removido o messagebox individual
+                return True
             except Exception as e:
                 raise Exception(f"Erro ao enviar email: {str(e)}")
             finally:
@@ -76,4 +77,4 @@ class EmailSender:
         except Exception as e:
             error_msg = f"Erro ao enviar e-mail: {str(e)}"
             logger_app.log_error(error_msg)
-            messagebox.showerror("Erro", error_msg)
+            return False
