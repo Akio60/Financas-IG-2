@@ -26,6 +26,7 @@ class App:
         self.email_sender = email_sender
         self.user_role = user_role
         self.user_name = user_name
+        self.user_role_name = SettingsManager.ROLE_NAMES.get(user_role, user_role)
 
         # Variáveis de controle
         self.detail_columns_to_display = ALL_COLUMNS_DETAIL.copy()
@@ -243,7 +244,7 @@ class App:
 
         status_label = tb.Label(
             bottom_frame,
-            text=f"Você está conectado como {self.user_name} (Cargo: {self.user_role})",
+            text=f"Você está conectado como {self.user_name} ({self.user_role_name})",
             font=("Helvetica", 10)
         )
         status_label.pack(side=LEFT, padx=10, pady=10)

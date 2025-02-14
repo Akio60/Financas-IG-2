@@ -28,12 +28,28 @@ def hash_password(password):
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 class SettingsManager:
+    ROLE_NAMES = {
+        "A1": "Visualizador",
+        "A2": "Editor Básico",
+        "A3": "Editor Avançado",
+        "A4": "Financeiro",
+        "A5": "Administrador"
+    }
+
     def __init__(self, app):
         self.app = app
         self.settings_window = None
         self.mask_window = None
 
         self.users_db = load_users_db()
+
+    def _center_window(self, window, w, h):
+        """Centraliza qualquer janela"""
+        ws = window.winfo_screenwidth()
+        hs = window.winfo_screenheight()
+        x = (ws - w) // 2
+        y = (hs - h) // 2
+        window.geometry(f"{w}x{h}+{x}+{y}")
 
     def open_settings(self):
         if self.settings_window and self.settings_window.winfo_exists():
@@ -42,7 +58,8 @@ class SettingsManager:
 
         self.settings_window = tb.Toplevel(self.app.root)
         self.settings_window.title("Configurações")
-        self.settings_window.geometry("800x500")
+        w, h = 800, 500
+        self._center_window(self.settings_window, w, h)
 
         main_frame = tb.Frame(self.settings_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
@@ -65,15 +82,6 @@ class SettingsManager:
 
         if self.app.user_role == "A5":
             
-            mask_btn = tb.Button(
-                col1,
-                text="Títulos de Informações",
-                bootstyle=WARNING,
-                width=BTN_WIDTH,
-                command=self.open_mask_editor
-            )
-            mask_btn.grid(row=1, column=0, sticky='w', pady=10)
-            
             user_btn = tb.Button(
                 col1,
                 text="Cadastrar/Remover Usuários",
@@ -81,16 +89,16 @@ class SettingsManager:
                 width=BTN_WIDTH,
                 command=self.user_management
             )
-            user_btn.grid(row=2, column=0, sticky='w', pady=10)
+            user_btn.grid(row=1, column=0, sticky='w', pady=10)
 
             notif_btn = tb.Button(
                 col1,
-                text="Configurar cargo de notificação",
+                text="Email de notificação por status",
                 bootstyle=INFO,
                 width=BTN_WIDTH,
                 command=self.setup_notification_cargos
             )
-            notif_btn.grid(row=3, column=0, sticky='w', pady=10)
+            notif_btn.grid(row=2, column=0, sticky='w', pady=10)
             
         row_start_col = 5
         columns_label = tb.Label(col1, text="Definição de Colunas", font=("Helvetica", 10, "bold"))
@@ -106,8 +114,8 @@ class SettingsManager:
         row_start_col += 1
 
         views = [
-            ("Aguardando aprovação", "Aguardando aprovação"),
-            ("Aceitas", "Aceitas"),
+            ("Solicitações Recebidas", "Aguardando aprovação"),
+            ("Solicitações Aceitas", "Aceitas"),
             ("Aguardando documentos", "Aguardando documentos"),
             ("Pronto para pagamento", "Pronto para pagamento")
         ]
@@ -283,61 +291,6 @@ class SettingsManager:
         close_btn = tb.Button(sel_window, text="Salvar", bootstyle=SUCCESS, width=BTN_WIDTH, command=close_and_save)
         close_btn.pack(pady=10)
 
-    def open_mask_editor(self):
-        if self.mask_window and self.mask_window.winfo_exists():
-            self.mask_window.lift()
-            return
-
-        self.mask_window = tb.Toplevel(self.app.root)
-        self.mask_window.title("Editar Títulos de Informações")
-        self.mask_window.geometry("600x500")
-
-        info_label = tb.Label(
-            self.mask_window,
-            text="Edite os nomes/títulos exibidos ao usuário, sem alterar as chaves internas.",
-            font=("Helvetica", 9),
-            foreground="gray",
-            wraplength=550
-        )
-        info_label.pack(pady=5, padx=5)
-
-        frame_scroll = tb.Frame(self.mask_window)
-        frame_scroll.pack(fill="both", expand=True, padx=10, pady=10)
-
-        canvas = tk.Canvas(frame_scroll)
-        scrollbar = tb.Scrollbar(frame_scroll, orient="vertical", command=canvas.yview)
-        scroll_frame = tb.Frame(canvas)
-
-        scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-
-        canvas.create_window((0,0), window=scroll_frame, anchor='nw')
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        self.entry_vars = {}
-        field_map = self.app.details_manager.FORM_FIELD_MAPPING
-
-        row_idx = 0
-        for key, val in field_map.items():
-            tk_label = tb.Label(scroll_frame, text=key, width=40, anchor='w')
-            tk_label.grid(row=row_idx, column=0, padx=5, pady=5, sticky='w')
-            var = tk.StringVar(value=val)
-            self.entry_vars[key] = var
-            tk_entry = tk.Entry(scroll_frame, textvariable=var, width=40)
-            tk_entry.grid(row=row_idx, column=1, padx=5, pady=5, sticky='w')
-            row_idx += 1
-
-        def save_masks():
-            for k, v in self.entry_vars.items():
-                field_map[k] = v.get().strip()
-            messagebox.showinfo("Sucesso", "Títulos atualizados.")
-            self.mask_window.destroy()
-
-        save_btn = tb.Button(self.mask_window, text="Salvar Títulos", bootstyle=SUCCESS, width=BTN_WIDTH, command=save_masks)
-        save_btn.pack(pady=5)
-
     def edit_email_template(self, motivo):
         template_window = tb.Toplevel(self.app.root)
         template_window.title(motivo)
@@ -366,7 +319,8 @@ class SettingsManager:
     def user_management(self):
         um_window = tb.Toplevel(self.app.root)
         um_window.title("Gerenciar Usuários")
-        um_window.geometry("500x400")
+        w, h = 600, 500  # Aumentado para comportar melhor os elementos
+        self._center_window(um_window, w, h)
 
         db_users = load_users_db()
 
@@ -390,7 +344,8 @@ class SettingsManager:
         def add_user():
             addw = tb.Toplevel(um_window)
             addw.title("Adicionar Usuário")
-            addw.geometry("300x250")
+            w, h = 400, 400  # Aumentado para comportar confirmação de senha
+            self._center_window(addw, w, h)
 
             tk.Label(addw, text="Login:").pack(pady=5)
             login_var = tk.StringVar()
@@ -399,13 +354,23 @@ class SettingsManager:
 
             tk.Label(addw, text="Senha:").pack(pady=5)
             pass_var = tk.StringVar()
-            pass_entry = tk.Entry(addw, textvariable=pass_var)
+            pass_entry = tk.Entry(addw, textvariable=pass_var, show="*")
             pass_entry.pack()
 
-            tk.Label(addw, text="Cargo (A1..A5):").pack(pady=5)
+            tk.Label(addw, text="Confirmar Senha:").pack(pady=5)
+            confirm_pass_var = tk.StringVar()
+            confirm_pass_entry = tk.Entry(addw, textvariable=confirm_pass_var, show="*")
+            confirm_pass_entry.pack()
+
+            tk.Label(addw, text="Cargo:").pack(pady=5)
             role_var = tk.StringVar(value="A1")
-            role_entry = tk.Entry(addw, textvariable=role_var)
-            role_entry.pack()
+            role_frame = tk.Frame(addw)
+            role_frame.pack(pady=5)
+
+            for role, name in self.ROLE_NAMES.items():
+                rb = tk.Radiobutton(role_frame, text=f"{role} - {name}", 
+                                  variable=role_var, value=role)
+                rb.pack(anchor='w')
 
             tk.Label(addw, text="Email:").pack(pady=5)
             email_var = tk.StringVar()
@@ -415,17 +380,27 @@ class SettingsManager:
             def confirm_add():
                 user = login_var.get().strip()
                 pwd = pass_var.get().strip()
+                confirm_pwd = confirm_pass_var.get().strip()
                 r = role_var.get().strip()
                 em = email_var.get().strip()
+
                 if not user or not pwd or not r or not em:
                     messagebox.showwarning("Aviso", "Preencha todos os campos!")
+                    return
+                if pwd != confirm_pwd:
+                    messagebox.showwarning("Aviso", "As senhas não coincidem!")
                     return
                 if user in db_users:
                     messagebox.showwarning("Aviso", "Usuário já existe.")
                     return
-                # Cria o hash da senha usando a função hash_password
+
                 hashed_pwd = hash_password(pwd+user)
-                db_users[user] = {"hashed_password": hashed_pwd, "role": r, "email": em}
+                db_users[user] = {
+                    "hashed_password": hashed_pwd, 
+                    "role": r, 
+                    "email": em,
+                    "role_name": self.ROLE_NAMES[r]
+                }
                 save_users_db(db_users)
                 refresh_users()
                 addw.destroy()
@@ -455,36 +430,53 @@ class SettingsManager:
     def setup_notification_cargos(self):
         notif_window = tb.Toplevel(self.app.root)
         notif_window.title("Configurar Emails de Notificação")
-        notif_window.geometry("600x500")
+        w, h = 800, 600
+        self._center_window(notif_window, w, h)
+
+        notebook = tb.Notebook(notif_window)
+        notebook.pack(fill=BOTH, expand=True, padx=10, pady=10)
+
+        # Dicionário com títulos mais amigáveis para as abas
+        tab_titles = {
+            "AguardandoAprovacao": "Recebimento de solicitação",
+            "Solicitação Aceita": "Solicitação aceita",
+            "ProntoPagamento": "Pronto para Pagamento",
+            "Cancelado": "Cancelados",
+        }
 
         notification_emails = self.app.sheets_handler.get_notification_emails()
+        tabs = {}
 
-        # Frame principal com scroll
-        main_frame = tb.Frame(notif_window)
-        main_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
-
-        # Criar frames para cada tipo de notificação
-        for event_type in ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Solicitação Aceita"]:
-            frame = tb.LabelFrame(main_frame, text=event_type, padding=10)
-            frame.pack(fill=X, pady=5)
-
-            # Listbox para emails
-            listbox = tk.Listbox(frame, height=4)
+        for event_type, title in tab_titles.items():
+            tab = tb.Frame(notebook, padding=10)
+            notebook.add(tab, text=title)
+            
+            # Frame para lista e botões
+            list_frame = tb.Frame(tab)
+            list_frame.pack(fill=BOTH, expand=True)
+            
+            # Listbox com scrollbar
+            listbox = tk.Listbox(list_frame, height=15)
+            scrollbar = tb.Scrollbar(list_frame, orient="vertical", command=listbox.yview)
+            listbox.configure(yscrollcommand=scrollbar.set)
+            
             listbox.pack(side=LEFT, fill=BOTH, expand=True)
+            scrollbar.pack(side=RIGHT, fill=Y)
             
             # Preencher listbox com emails existentes
             for email in notification_emails.get(event_type, []):
                 if email.strip():
                     listbox.insert(END, email.strip())
-
+            
             # Frame para botões
-            btn_frame = tb.Frame(frame)
-            btn_frame.pack(side=RIGHT, fill=Y, padx=5)
-
+            btn_frame = tb.Frame(tab)
+            btn_frame.pack(fill=X, pady=10)
+            
             def add_email(lb=listbox, et=event_type):
                 dialog = tb.Toplevel(notif_window)
                 dialog.title("Adicionar Email")
-                dialog.geometry("300x150")
+                w, h = 400, 150
+                self._center_window(dialog, w, h)
 
                 tk.Label(dialog, text="Email:").pack(pady=5)
                 email_var = tk.StringVar()
@@ -510,10 +502,12 @@ class SettingsManager:
                     emails = list(lb.get(0, END))
                     self.app.sheets_handler.update_notification_emails(et, emails)
 
-            tb.Button(btn_frame, text="Adicionar", bootstyle=SUCCESS, 
-                     command=lambda l=listbox, e=event_type: add_email(l, e)).pack(pady=2)
-            tb.Button(btn_frame, text="Remover", bootstyle=DANGER, 
-                     command=lambda l=listbox, e=event_type: remove_email(l, e)).pack(pady=2)
+            tb.Button(btn_frame, text="Adicionar Email", bootstyle=SUCCESS, 
+                     command=lambda l=listbox, e=event_type: add_email(l, e)).pack(side=LEFT, padx=5)
+            tb.Button(btn_frame, text="Remover Email", bootstyle=DANGER, 
+                     command=lambda l=listbox, e=event_type: remove_email(l, e)).pack(side=LEFT, padx=5)
+
+            tabs[event_type] = tab
 
         # Botão de fechar
         tb.Button(notif_window, text="Fechar", bootstyle=PRIMARY, 
