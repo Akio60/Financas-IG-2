@@ -19,6 +19,9 @@ from .details_manager import DetailsManager
 from .statistics_manager import StatisticsManager
 from .settings_manager import SettingsManager
 
+from backup_manager import BackupManager
+from security.auth_manager import AuthManager, require_auth
+
 class App:
     def __init__(self, root, sheets_handler: GoogleSheetsHandler, email_sender: EmailSender, user_role, user_name):
         self.root = root
@@ -102,6 +105,16 @@ class App:
                 'Valor'
             ]
         }
+
+        # Inicializa gerenciadores
+        self.auth_manager = AuthManager()
+        self.backup_manager = BackupManager(sheets_handler)
+        
+        # Inicia backup automático
+        self.backup_manager.start_backup_scheduler()
+        
+        # Versão do sistema
+        self.version = "2.3.03"
 
     def load_email_templates(self):
         try:
@@ -617,3 +630,13 @@ class App:
         """Abre o visualizador de logs"""
         from app.log_viewer import LogViewer
         LogViewer(self.root)
+
+    @require_auth
+    def protected_action(self, *args, **kwargs):
+        """Exemplo de método protegido que requer autenticação"""
+        user_data = kwargs.get('user_data')
+        if not user_data:
+            return
+            
+        # Implementar lógica protegida aqui
+        pass

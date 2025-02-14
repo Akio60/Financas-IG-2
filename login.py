@@ -8,6 +8,7 @@ import os
 import json
 import webbrowser
 import hashlib
+from security.auth_manager import AuthManager, LoginAttempt
 
 class RoundedButton(tk.Canvas):
     def __init__(
@@ -130,6 +131,8 @@ class LoginWindow:
         
         self.username = None
         self.role = None
+        self.auth_manager = AuthManager()
+        self.login_attempts = 0
 
         self._build_ui()
         self.center_window()
@@ -284,17 +287,55 @@ class LoginWindow:
         user = self.entry_user.get().strip()
         password = self.entry_pass.get().strip()
 
+        # Obtém IP (em produção, usar request.remote_addr)
+        client_ip = "127.0.0.1"
+        
+        # Verifica rate limit
+        if not self.auth_manager.check_rate_limit(client_ip):
+            messagebox.showerror("Erro", "Muitas tentativas. Tente novamente em alguns minutos.")
+            return
+
+        # Verifica bloqueio da conta
+        if self.auth_manager.is_account_locked(user, client_ip):
+            messagebox.showerror(
+                "Erro", 
+                f"Conta bloqueada por {LOCKOUT_TIME} minutos devido a múltiplas tentativas."
+            )
+            return
+
+        success = False
         if user in USERS_DB:
-            # Se o usuário possuir o campo "hashed_password", compara o hash da senha digitada
             if "hashed_password" in USERS_DB[user]:
                 if USERS_DB[user]["hashed_password"] == hash_password(password+user):
                     self.username = user
                     self.role = USERS_DB[user]["role"]
+                    success = True
+                    
+                    # Gera token JWT
+                    token = self.auth_manager.generate_token({
+                        'username': user,
+                        'role': self.role
+                    })
+                    
+                    self.token = token
                     self.window.destroy()
-                else:
-                    messagebox.showerror("Erro", "Senha incorreta!")
-        else:
-            messagebox.showerror("Erro", "Usuário não encontrado!")
+
+        # Registra tentativa
+        attempt = LoginAttempt(
+            ip=client_ip,
+            timestamp=datetime.now(),
+            success=success,
+            username=user
+        )
+        
+        self.auth_manager.record_login_attempt(
+            attempt,
+            user_agent="Desktop App v1.0"
+        )
+
+        if not success:
+            messagebox.showerror("Erro", "Usuário ou senha incorretos!")
+            self.login_attempts += 1
 
     def run(self):
         self.window.mainloop()
