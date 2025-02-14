@@ -11,9 +11,6 @@ import uuid
 import pandas as pd  # Adicionando import do pandas
 import logger_app
 
-NOTIFICATION_CARGOS_FILE = "notification_cargos.json"
-USERS_DB_FILE = "users_db.json"
-
 FORM_FIELD_MAPPING = {
     'Nome completo (sem abreviações):': 'Nome do Solicitante',
     'Endereço de e-mail': 'E-mail Pessoal',
@@ -40,18 +37,6 @@ FORM_FIELD_MAPPING = {
     'Descrever a solicitação resumidamente': 'Resumo da Solicitação',
     'Observações'   : 'Observações'
 }
-
-def load_notification_cargos():
-    if os.path.exists(NOTIFICATION_CARGOS_FILE):
-        with open(NOTIFICATION_CARGOS_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
-
-def load_users_db():
-    if os.path.exists(USERS_DB_FILE):
-        with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
 
 class DetailsManager:
     def __init__(self, app):
@@ -604,13 +589,41 @@ class DetailsManager:
         email_frame = tb.LabelFrame(solicitante_tab, text="Mensagem", padding=10)
         email_frame.pack(fill=BOTH, expand=True, padx=10, pady=5)
 
-        # Template do email ao solicitante
-        body = f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
-        body += f"Seu status foi alterado para: {status_update}."
-        if value:
-            body += f"\nValor do auxílio: R$ {value}."
-        body += f"\nCurso: {row_data['Curso:']}\nOrientador: {row_data['Orientador']}"
-        body += "\n\nAtenciosamente,\nEquipe Financeira"
+        # Template do email ao solicitante usando o mesmo mapeamento
+        status_template_map = {
+            '': 'AguardandoAprovacao',
+            'Autorizado': 'Aprovação',
+            'Pago': 'Pagamento', 
+            'Cancelado': 'Cancelamento',
+            'Pronto para pagamento': 'ProntoPagamento',
+            'Aguardando documentação': 'AguardandoDocumentacao'
+        }
+
+        # Seleciona template baseado no motivo ou no status
+        motivo = row_data.get('Motivo da solicitação', '')
+        if status_update in ['', 'Aguardando documentação']:
+            template = self.app.email_templates.get(motivo, self.app.email_templates['Outros'])
+        else:
+            template_key = status_template_map.get(status_update, 'Outros')
+            template = self.app.email_templates.get(template_key, '')
+
+        try:
+            body = template.format(
+                Nome=row_data.get('Nome completo (sem abreviações):', ''),
+                Curso=row_data.get('Curso:', ''),
+                Orientador=row_data.get('Orientador', ''),
+                Valor=value or row_data.get('Valor', '0,00'),
+                Motivo=row_data.get('Motivo da solicitação', ''),
+                Data=datetime.now().strftime('%d/%m/%Y')
+            )
+        except KeyError as e:
+            logger_app.log_error(f"Erro ao formatar template: {str(e)}")
+            body = f"Olá {row_data['Nome completo (sem abreviações):']},\n\n"
+            body += f"Seu status foi alterado para: {status_update}."
+            if value:
+                body += f"\nValor do auxílio: R$ {value}."
+            body += f"\nCurso: {row_data['Curso:']}\nOrientador: {row_data['Orientador']}"
+            body += "\n\nAtenciosamente,\nEquipe Financeira"
 
         solicitante_text = tb.ScrolledText(email_frame, width=70, height=15)
         solicitante_text.pack(fill=BOTH, expand=True)
@@ -756,32 +769,35 @@ class DetailsManager:
         recipients = notification_emails.get(event_key, [])
         
         if recipients:
+            # Email para responsáveis sempre usa o template padrão de notificação
+            body = (
+                f"Prezado(a) responsável,\n\n"
+                f"Uma solicitação teve seu status alterado e requer sua atenção.\n\n"
+                f"=== DETALHES DA SOLICITAÇÃO ===\n"
+                f"Status: {event_key}\n"
+                f"ID: {row_data.get('Id', 'N/A')}\n"
+                f"Data: {row_data.get('Carimbo de data/hora', 'N/A')}\n\n"
+                f"=== DADOS DO SOLICITANTE ===\n"
+                f"Nome: {row_data.get('Nome completo (sem abreviações):', 'N/A')}\n"
+                f"CPF: {row_data.get('CPF:', 'N/A')}\n"
+                f"Curso: {row_data.get('Curso:', 'N/A')}\n"
+                f"Orientador: {row_data.get('Orientador', 'N/A')}\n\n"
+                f"=== INFORMAÇÕES FINANCEIRAS ===\n"
+                f"Valor Solicitado: R$ {row_data.get('Valor solicitado. Somente valor, sem pontos e vírgula', '0,00')}\n"
+                f"Valor Aprovado: R$ {row_data.get('Valor', '0,00')}\n"
+                f"Motivo: {row_data.get('Motivo da solicitação', 'N/A')}\n\n"
+                f"Para acessar mais detalhes ou tomar ações, por favor acesse o sistema.\n\n"
+                f"Atenciosamente,\n"
+                f"Sistema Financeiro IG-UNICAMP\n\n"
+                f"--\n"
+                f"Este é um email automático. Para questões específicas, entre em contato com a\n"
+                f"Gestão Financeira do IG através do email gestao.financeira@ig.unicamp.br"
+            )
+
             return {
                 'recipients': recipients,
                 'subject': f"[Sistema Financeiro IG] Nova Solicitação - {event_key}",
-                'body': (
-                    f"Prezado(a) responsável,\n\n"
-                    f"Uma solicitação teve seu status alterado e requer sua atenção.\n\n"
-                    f"=== DETALHES DA SOLICITAÇÃO ===\n"
-                    f"Status: {event_key}\n"
-                    f"ID: {row_data.get('Id', 'N/A')}\n"
-                    f"Data: {row_data.get('Carimbo de data/hora', 'N/A')}\n\n"
-                    f"=== DADOS DO SOLICITANTE ===\n"
-                    f"Nome: {row_data.get('Nome completo (sem abreviações):', 'N/A')}\n"
-                    f"CPF: {row_data.get('CPF:', 'N/A')}\n"
-                    f"Curso: {row_data.get('Curso:', 'N/A')}\n"
-                    f"Orientador: {row_data.get('Orientador', 'N/A')}\n\n"
-                    f"=== INFORMAÇÕES FINANCEIRAS ===\n"
-                    f"Valor Solicitado: R$ {row_data.get('Valor solicitado. Somente valor, sem pontos e vírgula', '0,00')}\n"
-                    f"Valor Aprovado: R$ {row_data.get('Valor', '0,00')}\n"
-                    f"Motivo: {row_data.get('Motivo da solicitação', 'N/A')}\n\n"
-                    f"Para acessar mais detalhes ou tomar ações, por favor acesse o sistema.\n\n"
-                    f"Atenciosamente,\n"
-                    f"Sistema Financeiro IG-UNICAMP\n\n"
-                    f"--\n"
-                    f"Este é um email automático. Para questões específicas, entre em contato com a\n"
-                    f"Gestão Financeira do IG através do email gestao.financeira@ig.unicamp.br"
-                )
+                'body': body
             }
         return None
 
@@ -824,103 +840,6 @@ class DetailsManager:
             messagebox.showerror("Erro", f"Erro ao enviar email: {str(e)}")
             return False
 
-    def show_email_progress(self, emails_to_send):
-        """
-        Nova janela que mostra progresso dos emails sendo enviados
-        
-        emails_to_send: lista de dicts com:
-            - recipient: destinatário
-            - subject: assunto
-            - body: corpo
-            - type: tipo (notificação/solicitante)
-        """
-        progress_window = tb.Toplevel(self.app.root)
-        progress_window.title("Enviando Emails")
-        progress_window.geometry("500x400")
-        progress_window.transient(self.app.root)
-        progress_window.grab_set()  # Torna modal
-
-        # Frame principal
-        main_frame = tb.Frame(progress_window, padding=20)
-        main_frame.pack(fill=BOTH, expand=True)
-
-        # Lista de emails
-        list_frame = tb.LabelFrame(main_frame, text="Emails a serem enviados", padding=10)
-        list_frame.pack(fill=BOTH, expand=True)
-
-        # Treeview para mostrar os emails
-        columns = ("Destinatário", "Tipo", "Status")
-        tree = tb.Treeview(list_frame, columns=columns, show="headings", height=10)
-        for col in columns:
-            tree.heading(col, text=col)
-            tree.column(col, width=150)
-        tree.pack(fill=BOTH, expand=True)
-
-        # Adiciona emails na lista
-        for i, email in enumerate(emails_to_send):
-            tree.insert("", END, iid=str(i), values=(
-                email["recipient"],
-                email["type"],
-                "Pendente"
-            ))
-
-        # Barra de progresso
-        progress = tb.Progressbar(
-            main_frame, 
-            bootstyle="success-striped",
-            maximum=len(emails_to_send)
-        )
-        progress.pack(fill=X, pady=10)
-
-        # Status label
-        status_label = tb.Label(main_frame, text="Iniciando envio...")
-        status_label.pack(pady=5)
-
-        def send_all_emails():
-            success_count = 0
-            for i, email in enumerate(emails_to_send):
-                try:
-                    status_label.config(text=f"Enviando para {email['recipient']}...")
-                    sent = self.send_direct_email(
-                        email["recipient"],
-                        email["subject"],
-                        email["body"]
-                    )
-                    
-                    if sent:
-                        tree.set(str(i), "Status", "✓ Enviado")
-                        success_count += 1
-                    else:
-                        tree.set(str(i), "Status", "✗ Falhou")
-                        
-                    progress["value"] = i + 1
-                    progress_window.update()
-                    
-                except Exception as e:
-                    logger_app.log_error(f"Erro ao enviar email: {str(e)}")
-                    tree.set(str(i), "Status", "✗ Erro")
-
-            status_label.config(
-                text=f"Concluído! {success_count} de {len(emails_to_send)} emails enviados."
-            )
-            close_btn.config(state="normal")
-
-        # Botão de fechar (inicialmente desabilitado)
-        close_btn = tb.Button(
-            main_frame,
-            text="Fechar",
-            command=progress_window.destroy,
-            state="disabled"
-        )
-        close_btn.pack(pady=10)
-
-        # Inicia envio em thread separada
-        import threading
-        thread = threading.Thread(target=send_all_emails)
-        thread.start()
-
-        return progress_window
-
     def request_documents(self, row_data):
         if self.app.user_role not in ["A3", "A5"]:
             messagebox.showwarning("Permissão Negada", "Apenas A3 ou A5.")
@@ -930,21 +849,11 @@ class DetailsManager:
         ts_str = row_data['Carimbo de data/hora']
         
         if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
-            motivo = row_data.get('Motivo da solicitação', 'Outros').strip()
-            email_template = self.app.email_templates.get(motivo, self.app.email_templates['Outros'])
-            subject = "Requisição de Documentos"
-            body = email_template.format(Nome=row_data['Nome completo (sem abreviações):'])
+            # Prepara dados para notificação
+            notification_data = self.prepare_notification_data("AguardandoDocumentacao", row_data)
             
-            # Prepara lista de emails
-            emails_to_send = [{
-                "recipient": row_data['Endereço de e-mail'],
-                "subject": subject,
-                "body": body,
-                "type": "Solicitante"
-            }]
-            
-            # Mostra janela de progresso e envia
-            self.show_email_progress(emails_to_send)
+            # Usa unified_email_window para consistência
+            self.unified_email_window(row_data, new_status, notification_data)
             
             self.app.update_table()
             self.app.go_to_home()

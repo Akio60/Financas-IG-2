@@ -111,73 +111,63 @@ class GoogleSheetsHandler:
             logger_app.log_error(f"Erro ao atualizar observações: {e}")
             return False
 
-    @api_call_handler
+    @api_call_handler 
     def get_notification_emails(self):
-        """Versão otimizada com cache"""
-        current_time = time.time()
-        
-        # Se tiver cache válido, retorna
-        if (self._notification_emails_cache and 
-            self._last_cache_update and 
-            current_time - self._last_cache_update < self._cache_timeout):
-            return self._notification_emails_cache
-
-        data = self.email_sheet.get_all_records()
-        if not data:
-            logger_app.log_warning("Planilha de emails vazia")
-            return {}
-                
-        row_data = data[0]
-        emails_dict = {}
-            
-        for key in ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Autorizado"]:
-            email_str = row_data.get(key, "")
-            if isinstance(email_str, str):
-                emails = [e.strip() for e in email_str.split(",") if e.strip()]
-                emails_dict[key] = emails
-            else:
-                emails_dict[key] = []
-            
-        # Atualiza cache
-        self._notification_emails_cache = emails_dict
-        self._last_cache_update = current_time
-            
-        return emails_dict
-
-    @api_call_handler
-    def update_notification_emails(self, column, emails):
-        """Atualiza os emails de notificação para uma coluna específica"""
+        """Retorna os emails de notificação da aba Email"""
         try:
-            current_time = time.time()
-            # Encontra o índice da coluna
-            header = self.email_sheet.row_values(1)
-            if (self._notification_emails_cache and 
-                self._last_cache_update and 
-                current_time - self._last_cache_update < self._cache_timeout):
-                return self._notification_emails_cache
-
             data = self.email_sheet.get_all_records()
             if not data:
                 logger_app.log_warning("Planilha de emails vazia")
                 return {}
-                    
-            row_data = data[0]
+                
+            # Pega primeira linha que contém os emails
+            row_data = data[0] if data else {}
             emails_dict = {}
-                
-            for key in ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Autorizado"]:
-                email_str = row_data.get(key, "")
-                if isinstance(email_str, str):
+            
+            # Status possíveis para notificações
+            status_list = [
+                "AguardandoAprovacao", "Pendencias", "ProntoPagamento", 
+                "Cancelado", "Autorizado", "AguardandoDocumentacao", "Pago"
+            ]
+            
+            for status in status_list:
+                if status in row_data:
+                    email_str = str(row_data[status])
                     emails = [e.strip() for e in email_str.split(",") if e.strip()]
-                    emails_dict[key] = emails
-                else:
-                    emails_dict[key] = []
-                
-            # Atualiza cache
-            self._notification_emails_cache = emails_dict
-            self._last_cache_update = current_time
+                    if emails:
+                        emails_dict[status] = emails
                 
             return emails_dict
 
         except Exception as e:
             logger_app.log_error(f"Erro ao obter emails de notificação: {str(e)}")
             return {}
+
+    @api_call_handler
+    def update_notification_emails(self, column, emails):
+        """Atualiza os emails de notificação para uma coluna específica"""
+        try:
+            # Encontra índice da coluna 
+            header = self.email_sheet.row_values(1)
+            if column not in header:
+                logger_app.log_error(f"Coluna {column} não encontrada na aba Email")
+                return False
+
+            col_idx = header.index(column) + 1
+            
+            # Une os emails com vírgula
+            email_str = ", ".join(emails)
+            
+            # Atualiza na segunda linha (primeira linha após header)
+            self.email_sheet.update_cell(2, col_idx, email_str)
+            
+            # Invalida o cache
+            self._notification_emails_cache = None
+            self._last_cache_update = None
+            
+            logger_app.log_info(f"Emails atualizados para {column}: {email_str}")
+            return True
+
+        except Exception as e:
+            logger_app.log_error(f"Erro ao atualizar emails de notificação: {str(e)}")
+            return False
