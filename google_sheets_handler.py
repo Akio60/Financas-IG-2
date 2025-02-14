@@ -127,7 +127,7 @@ class GoogleSheetsHandler:
             # Status possíveis para notificações
             status_list = [
                 "AguardandoAprovacao", "Pendencias", "ProntoPagamento", 
-                "Cancelado", "Autorizado", "AguardandoDocumentacao", "Pago"
+                "Cancelado", "Solicitação Aceita", "AguardandoDocumentacao", "Pago"
             ]
             
             for status in status_list:

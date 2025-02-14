@@ -232,11 +232,36 @@ class DetailsManager:
                             if not new_value:
                                 messagebox.showwarning("Aviso", "Insira um valor antes.")
                                 return
-                            new_status = 'Autorizado'
-                            self.autorizar_auxilio(row_data, new_value, new_status)
+                            new_status = 'Solicitação Aceita'
+                            ts_str = row_data['Carimbo de data/hora']
+                            
+                            # Primeiro atualiza o status e valor
+                            if not self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                                messagebox.showerror("Erro", "Falha ao atualizar status")
+                                return
+                            if not self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name):
+                                messagebox.showerror("Erro", "Falha ao atualizar valor")
+                                return
+                            
+                            # Prepara dados de notificação
+                            notification_data = self.prepare_notification_data(new_status, row_data)
+                            
+                            # Mostra janela unificada de emails
+                            self.unified_email_window(row_data, new_status, notification_data, new_value)
+                            
+                            # Atualiza a interface
+                            self.app.update_table()
+                            self.app.go_to_home()
 
                         def negar_auxilio():
-                            self.cancel_auxilio(row_data)
+                            confirm = messagebox.askyesno("Confirmação", "Tem certeza que deseja recusar/cancelar o auxílio?")
+                            if confirm:
+                                new_status = 'Cancelado'
+                                ts_str = row_data['Carimbo de data/hora']
+                                self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
+                                self.notify_next_responsible("Cancelado", row_data)
+                                self.app.update_table()
+                                self.app.go_to_home()
 
                         autorizar_button = tb.Button(tab_frame, text="Autorizar Auxílio", bootstyle=SUCCESS, command=autorizar_auxilio)
                         negar_button = tb.Button(tab_frame, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=negar_auxilio)
@@ -319,13 +344,52 @@ class DetailsManager:
 
         # Funções de callback permanecem as mesmas
         def authorize_payment():
-            self.autorizar_auxilio(row_data, new_value, new_status)
+            if role not in ["A3", "A5"]:
+                messagebox.showwarning("Permissão Negada", "Somente A3 ou A5.")
+                return
+            new_status = 'Pronto para pagamento'
+            ts_str = row_data['Carimbo de data/hora']
+            
+            if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                notification_data = self.prepare_notification_data("ProntoPagamento", row_data)
+                self.unified_email_window(row_data, new_status, notification_data)
+                self.app.update_table()
+                self.app.go_to_home()
+            else:
+                messagebox.showerror("Erro", "Falha ao atualizar status")
 
         def cancel_auxilio():
-            self.cancel_auxilio(row_data)
+            if role not in ["A3", "A5"]:
+                messagebox.showwarning("Negado", "Somente A3 ou A5 podem cancelar.")
+                return
+                
+            confirm = messagebox.askyesno("Confirmar", "Tem certeza que deseja recusar/cancelar o auxílio?")
+            if confirm:
+                new_status = 'Cancelado'
+                ts_str = row_data['Carimbo de data/hora']
+                
+                if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                    notification_data = self.prepare_notification_data("Cancelado", row_data)
+                    self.unified_email_window(row_data, new_status, notification_data)
+                    self.app.update_table()
+                    self.app.go_to_home()
+                else:
+                    messagebox.showerror("Erro", "Falha ao atualizar status")
 
         def payment_made():
-            self.payment_made(row_data)
+            if role not in ["A3", "A4", "A5"]:
+                messagebox.showwarning("Negado", "Você não tem permissão para efetuar pagamento.")
+                return
+            new_status = 'Pago'
+            ts_str = row_data['Carimbo de data/hora']
+            
+            if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+                notification_data = self.prepare_notification_data("Pago", row_data)
+                self.unified_email_window(row_data, new_status, notification_data)
+                self.app.update_table()
+                self.app.back_to_main_view()
+            else:
+                messagebox.showerror("Erro", "Falha ao atualizar status")
 
         # Layout centralizado por view
         if view == "Aceitas":
@@ -493,7 +557,7 @@ class DetailsManager:
         close_button = tb.Button(detail_frame, text="Fechar", bootstyle=PRIMARY, command=detail_window.destroy)
         close_button.pack(pady=10)
 
-    def unified_email_window(self, row_data, status_update, notification_data=None, value=None, callback_on_success=None):
+    def unified_email_window(self, row_data, status_update, notification_data=None, value=None):
         """Janela unificada com abas + progresso de envio"""
         email_window = tb.Toplevel(self.app.root)
         email_window.title("Gerenciamento de Emails")
@@ -528,7 +592,7 @@ class DetailsManager:
         # Template do email ao solicitante usando o mesmo mapeamento
         status_template_map = {
             '': 'AguardandoAprovacao',
-            'Autorizado': 'Aprovação',
+            'Solicitação Aceita': 'Aprovação',
             'Pago': 'Pagamento', 
             'Cancelado': 'Cancelamento',
             'Pronto para pagamento': 'ProntoPagamento',
@@ -662,17 +726,8 @@ class DetailsManager:
                     text=f"Concluído! {success_count} de {len(emails_to_send)} emails enviados."
                 )
                 close_btn.config(state="normal")
-
-                # Só executa o callback se todos os emails foram enviados com sucesso
                 if success_count == len(emails_to_send):
-                    if callback_on_success:
-                        callback_on_success()
                     email_window.destroy()
-                else:
-                    messagebox.showerror(
-                        "Erro", 
-                        "Alguns emails não foram enviados. O status não será atualizado."
-                    )
 
             close_btn = tb.Button(
                 main_frame,
@@ -793,84 +848,12 @@ class DetailsManager:
         new_status = 'Aguardando documentação'
         ts_str = row_data['Carimbo de data/hora']
         
-        def update_after_email():
-            if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
-                self.app.update_table()
-                self.app.go_to_home()
-        
-        notification_data = self.prepare_notification_data("AguardandoDocumentacao", row_data)
-        self.unified_email_window(
-            row_data, 
-            new_status, 
-            notification_data,
-            callback_on_success=update_after_email
-        )
-
-    def autorizar_auxilio(self, row_data, new_value, new_status):
-        """Função auxiliar para autorizar auxílio"""
-        ts_str = row_data['Carimbo de data/hora']
-        
-        def update_after_email():
-            if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
-                if not self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name):
-                    messagebox.showerror("Erro", "Falha ao atualizar valor")
-                    return
-                self.app.update_table()
-                self.app.go_to_home()
-            else:
-                messagebox.showerror("Erro", "Falha ao atualizar status")
-
-        notification_data = self.prepare_notification_data(new_status, row_data)
-        self.unified_email_window(
-            row_data, 
-            new_status, 
-            notification_data, 
-            new_value,
-            callback_on_success=update_after_email
-        )
-
-    def cancel_auxilio(self, row_data):
-        """Função auxiliar para cancelar auxílio"""
-        if self.app.user_role not in ["A3", "A5"]:
-            messagebox.showwarning("Negado", "Somente A3 ou A5 podem cancelar.")
-            return
+        if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
+            # Prepara dados para notificação
+            notification_data = self.prepare_notification_data("AguardandoDocumentacao", row_data)
             
-        confirm = messagebox.askyesno("Confirmação", "Tem certeza que deseja recusar/cancelar o auxílio?")
-        if confirm:
-            new_status = 'Cancelado'
-            ts_str = row_data['Carimbo de data/hora']
+            # Usa unified_email_window para consistência
+            self.unified_email_window(row_data, new_status, notification_data)
             
-            def update_after_email():
-                if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
-                    self.app.update_table()
-                    self.app.go_to_home()
-            
-            notification_data = self.prepare_notification_data("Cancelado", row_data)
-            self.unified_email_window(
-                row_data, 
-                new_status, 
-                notification_data,
-                callback_on_success=update_after_email
-            )
-
-    def payment_made(self, row_data):
-        """Função auxiliar para confirmar pagamento"""
-        if self.app.user_role not in ["A3", "A4", "A5"]:
-            messagebox.showwarning("Negado", "Você não tem permissão para efetuar pagamento.")
-            return
-
-        new_status = 'Pago'
-        ts_str = row_data['Carimbo de data/hora']
-        
-        def update_after_email():
-            if self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name):
-                self.app.update_table()
-                self.app.back_to_main_view()
-        
-        notification_data = self.prepare_notification_data("Pago", row_data)
-        self.unified_email_window(
-            row_data, 
-            new_status, 
-            notification_data,
-            callback_on_success=update_after_email
-        )
+            self.app.update_table()
+            self.app.go_to_home()

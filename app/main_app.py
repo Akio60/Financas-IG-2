@@ -489,7 +489,7 @@ class App:
         elif self.current_view == "Aguardando aprovação":
             data_filtered = self.data[self.data['Status'] == '']
         elif self.current_view == "Aceitas":
-            data_filtered = self.data[self.data['Status'] == 'Autorizado']
+            data_filtered = self.data[self.data['Status'] == 'Solicitação Aceita']
         elif self.current_view == "Aguardando documentos":
             data_filtered = self.data[self.data['Status'] == 'Aguardando documentação']
         elif self.current_view == "Pronto para pagamento":

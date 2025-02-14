@@ -185,10 +185,10 @@ class StatisticsManager:
         )
         self.period_label.place(x=280, y=65)
 
-        self.type_buttons["barras"] = self.create_type_button("Barras", "barras", x=20, y=100)
-        self.type_buttons["motivos"] = self.create_type_button("Motivos", "motivos", x=20, y=150)
+        self.type_buttons["barras"] = self.create_type_button("Orçamento parcial", "barras", x=20, y=100)
+        self.type_buttons["acumulado"] = self.create_type_button("Vallor Absoluto", "acumulado", x=20, y=150)
         self.type_buttons["agencias"] = self.create_type_button("Agências", "agencias", x=20, y=200)
-        self.type_buttons["acumulado"] = self.create_type_button("Acumulado", "acumulado", x=20, y=250)
+        self.type_buttons["motivos"] = self.create_type_button("Tipos de Sol.", "motivos", x=20, y=250)
 
         info_frame = tk.Frame(self.left_frame, bg="#2C3E50")
         info_frame.place(x=20, y=330, width=200, height=250)
@@ -303,24 +303,24 @@ class StatisticsManager:
         if not self.period_label:
             return
         if self.current_period == "mes":
-            text = "Visualizando: Mês atual (por semanas, Status=Pago)"
+            text = "Visualizando: Mês atual (por semanas)"
         elif self.current_period == "semestre":
             now = date.today()
             sem = 1 if now.month <= 6 else 2
-            text = f"Visualizando: {sem}º Semestre de {now.year} (mes a mes, pagos)"
+            text = f"Visualizando: {sem}º Semestre de {now.year} (mes a mes)"
         elif self.current_period == "ano":
-            text = f"Visualizando: Ano {date.today().year} (mes a mes, pagos)"
+            text = f"Visualizando: Ano {date.today().year} (mes a mes)"
         elif self.current_period == "custom":
             try:
                 ms = int(self.custom_month_start.get())
                 ys = int(self.custom_year_start.get())
                 me = int(self.custom_month_end.get())
                 ye = int(self.custom_year_end.get())
-                text = f"Visualizando: {ms:02d}/{ys} a {me:02d}/{ye} (pagos)"
+                text = f"Visualizando: {ms:02d}/{ys} a {me:02d}/{ye}"
             except:
-                text = "Visualizando: Custom (erro, pagos)"
+                text = "Visualizando: Custom (erro)"
         else:
-            text = "Visualizando: Todos (agrupado por semestre, somente pagos)"
+            text = "Visualizando: Todos (agrupado por semestre)"
         self.period_label.config(text=text)
 
     def ask_custom_period(self):
@@ -356,7 +356,7 @@ class StatisticsManager:
         om4 = tk.OptionMenu(frame_end, self.custom_year_end, *years)
         om4.pack(side="left", padx=5)
 
-        tk.Label(custom_win, text="Granularidade:", bg="#ECF0F1").pack(pady=5)
+        tk.Label(custom_win, text="Frequência:", bg="#ECF0F1").pack(pady=5)
         self.custom_granularity = tk.StringVar(value="mensal")
         granularity_options = ["mensal", "semestral", "anual"]
         frame_granularity = tk.Frame(custom_win, bg="#ECF0F1")
@@ -568,6 +568,7 @@ class StatisticsManager:
                                     ha='center', va='bottom', fontsize=8, color='black')
                     ax.set_xticks(x)
                     ax.set_xticklabels([f"Sem{w}" for w in weeks_index])
+                    ax.set_title("Distribuição das solicitações no periodo")
                     ax.legend(fontsize=8)
                     max_val = bottom.max()
                     ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
@@ -603,6 +604,7 @@ class StatisticsManager:
                                         ha='center', va='bottom', fontsize=8, color='black')
                         ax.set_xticks(x)
                         ax.set_xticklabels(semester_months, rotation=45, ha='right')
+                        ax.set_title("Distribuição das solicitações no periodo")
                         ax.legend(fontsize=8)
                         max_val = bottom.max()
                         ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
@@ -634,6 +636,7 @@ class StatisticsManager:
                                         ha='center', va='bottom', fontsize=8, color='black')
                         ax.set_xticks(x)
                         ax.set_xticklabels(all_months, rotation=45, ha='right')
+                        ax.set_title("Distribuição das solicitações no periodo")
                         ax.legend(fontsize=8)
                         max_val = bottom.max()
                         ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
@@ -671,6 +674,7 @@ class StatisticsManager:
                         
                         ax.set_xticks(x)
                         ax.set_xticklabels(period_labels, rotation=45, ha='right')
+                        ax.set_title("Distribuição das solicitações no periodo")
                         ax.legend(fontsize=8)
                         max_val = bottom.max()
                         ax.set_ylim(0, max_val * 1.2 if max_val > 0 else 1)
@@ -752,14 +756,14 @@ class StatisticsManager:
                                     ha='center', va='bottom', fontsize=8)
                 ax_bar.set_xticks(x)
                 ax_bar.set_xticklabels(self.fixed_motives_order, rotation=45, ha='right')
-                ax_bar.set_title("Motivos: Barras (Pagos)")
+                ax_bar.set_title("Valor atribuido por de tipo de solicitação")
                 maxv = group_fixed.max()
                 ax_bar.set_ylim(0, maxv * 1.2 if maxv > 0 else 1)
     
                 values = group_fixed.values
                 colors = [color_map(float(i + 1) / n) for i in range(n)]
                 wedges, _, _ = ax_pie.pie(values, labels=None, colors=colors, autopct='%1.1f%%')
-                ax_pie.set_title("Motivos: Pizza (Pagos)")
+                ax_pie.set_title("Distribuição dos tipo de solicitação")
                 ax_pie.legend(wedges, self.fixed_motives_order, fontsize=8,
                               loc='lower center', bbox_to_anchor=(0.5, -0.15),
                               ncol=2)
@@ -798,7 +802,7 @@ class StatisticsManager:
                                     ha='left', va='bottom', color='black', fontsize=9)
                     ax.set_xticks(x)
                     ax.set_xticklabels([f"Sem{w}" for w in weeks_index])
-                    ax.set_title("Acumulado (Mês)")
+                    ax.set_title("Soma dos valores acumulados no mês")
     
             elif self.current_period == "semestre":
                 if "MesAbrev" not in df.columns:
@@ -821,7 +825,7 @@ class StatisticsManager:
                                     ha='left', va='bottom', color='black', fontsize=9)
                     ax.set_xticks(x)
                     ax.set_xticklabels(semester_months, rotation=45, ha='right')
-                    ax.set_title("Acumulado (Semestre)")
+                    ax.set_title("Soma dos valores acumulados no semestre")
     
             elif self.current_period == "ano":
                 if "MesAbrev" not in df.columns:
@@ -840,7 +844,7 @@ class StatisticsManager:
                                     ha='left', va='bottom', color='black', fontsize=9)
                     ax.set_xticks(x)
                     ax.set_xticklabels(all_months, rotation=45, ha='right')
-                    ax.set_title("Acumulado (Ano)")
+                    ax.set_title("Soma dos valores acumulados no ano")
     
             elif self.current_period == "custom":
                 if "Periodo" not in df.columns or "PeriodoLabel" not in df.columns:
@@ -909,7 +913,7 @@ class StatisticsManager:
             colors = [color_map(float(i + 1) / n) for i in range(n)]
             wedges, _, _ = ax.pie(agencias.values, labels=None,
                                   colors=colors, autopct='%1.1f%%')
-            ax.set_title("Agências")
+            ax.set_title("Dristribuição das Agências de Fomento")
             ax.legend(wedges, agencias.index, loc='best', fontsize=8)
     
         canvas = FigureCanvasTkAgg(self.current_figure, master=self.graph_frame)

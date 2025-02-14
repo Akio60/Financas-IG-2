@@ -44,7 +44,7 @@ FRAME_BG_COLOR = '#d0e0ff'
 
 STATUS_COLORS = {
     'Aguardando documentação': '#B8860B',
-    'Autorizado': '#006400',
+    'Solicitação Aceita': '#006400',
     'Negado': '#8B0000',
     'Pronto para pagamento': '#00008B',
     'Pago': '#4B0082',

@@ -11,8 +11,6 @@ import hashlib
 BTN_WIDTH = 35
 
 USERS_DB_FILE = "users_db.json"
-NOTIFICATION_CARGOS_FILE = "notification_cargos.json"
-TABLE_COLORS_FILE = "table_colors.json"
 
 def load_users_db():
     if os.path.exists(USERS_DB_FILE):
@@ -24,37 +22,6 @@ def save_users_db(db):
     with open(USERS_DB_FILE, 'w', encoding='utf-8') as f:
         json.dump(db, f, indent=4, ensure_ascii=False)
 
-def load_notification_cargos():
-    if os.path.exists(NOTIFICATION_CARGOS_FILE):
-        with open(NOTIFICATION_CARGOS_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {
-        "AguardandoAprovacao": "A2",
-        "Pendencias": "A3",
-        "ProntoPagamento": "A4",
-        "Cancelado": "A1",
-        "Autorizado": "A3"
-    }
-
-def save_notification_cargos(cfg):
-    with open(NOTIFICATION_CARGOS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(cfg, f, indent=4, ensure_ascii=False)
-
-def load_table_colors():
-    if os.path.exists(TABLE_COLORS_FILE):
-        with open(TABLE_COLORS_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {
-        "background": "#ffffff",
-        "foreground": "#000000",
-        "oddrow": "#f0f8ff",
-        "evenrow": "#ffffff",
-        "selected": "#d3d3d3"
-    }
-
-def save_table_colors(colors):
-    with open(TABLE_COLORS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(colors, f, indent=4, ensure_ascii=False)
 
 def hash_password(password):
     """Retorna o hash SHA-256 da senha fornecida."""
@@ -67,7 +34,6 @@ class SettingsManager:
         self.mask_window = None
 
         self.users_db = load_users_db()
-        self.notification_cargos = load_notification_cargos()
 
     def open_settings(self):
         if self.settings_window and self.settings_window.winfo_exists():
@@ -126,15 +92,6 @@ class SettingsManager:
             )
             notif_btn.grid(row=3, column=0, sticky='w', pady=10)
             
-            color_btn = tb.Button(
-                col1,
-                text="Gerir Cores das Tabelas",
-                bootstyle=INFO,
-                width=BTN_WIDTH,
-                command=self.manage_table_colors
-            )
-            color_btn.grid(row=4, column=0, sticky='w', pady=10)
-
         row_start_col = 5
         columns_label = tb.Label(col1, text="Definição de Colunas", font=("Helvetica", 10, "bold"))
         columns_label.grid(row=row_start_col, column=0, sticky='w', pady=(15,5))
@@ -536,7 +493,7 @@ class SettingsManager:
         main_frame.pack(fill=BOTH, expand=True, padx=10, pady=10)
 
         # Criar frames para cada tipo de notificação
-        for event_type in ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Autorizado"]:
+        for event_type in ["AguardandoAprovacao", "Pendencias", "ProntoPagamento", "Cancelado", "Solicitação Aceita"]:
             frame = tb.LabelFrame(main_frame, text=event_type, padding=10)
             frame.pack(fill=X, pady=5)
 
