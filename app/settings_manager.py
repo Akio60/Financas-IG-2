@@ -166,35 +166,6 @@ class SettingsManager:
 
         col2.rowconfigure(row_index2, weight=1)
 
-    def manage_table_colors(self):
-        colors = load_table_colors()
-        color_win = tb.Toplevel(self.app.root)
-        color_win.title("Gerenciar Cores das Tabelas")
-        color_win.geometry("400x300")
-
-        lbl = tb.Label(color_win, text="Defina as cores para a exibição das tabelas:", font=("Helvetica", 10, "bold"))
-        lbl.pack(pady=10)
-
-        frame = tb.Frame(color_win)
-        frame.pack(pady=10)
-
-        entries = {}
-        for i, key in enumerate(["background", "foreground", "oddrow", "evenrow", "selected"]):
-            tk.Label(frame, text=key.capitalize() + ":").grid(row=i, column=0, sticky='e', padx=5, pady=5)
-            var = tk.StringVar(value=colors.get(key, ""))
-            entry = tk.Entry(frame, textvariable=var, width=20)
-            entry.grid(row=i, column=1, padx=5, pady=5)
-            entries[key] = var
-
-        def save_colors():
-            new_colors = {key: var.get().strip() for key, var in entries.items()}
-            save_table_colors(new_colors)
-            messagebox.showinfo("Sucesso", "Cores atualizadas. Reinicie o aplicativo para ver as mudanças.")
-            color_win.destroy()
-
-        save_btn = tb.Button(color_win, text="Salvar Cores", bootstyle=SUCCESS, width=BTN_WIDTH, command=save_colors)
-        save_btn.pack(pady=10)
-
     def open_column_selector(self, view_name):
         sel_window = tb.Toplevel(self.app.root)
         sel_window.title(f"Colunas - {view_name}")

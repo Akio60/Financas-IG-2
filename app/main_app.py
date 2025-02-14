@@ -531,28 +531,68 @@ class App:
                 values=values, tags=(tag, f'status_tag_{idx}')
             )
 
+        # Após configurar todas as colunas e inserir os dados, ordena por ID decrescente
+        if 'Id' in self.columns_to_display:
+            self.treeview_sort_column(self.tree, 'Id', reverse=True)
+
     def treeview_sort_column(self, tv, col, reverse):
         self.sorted_column = col
         self.sort_reverse = reverse
         data_list = [(tv.set(k, col), k) for k in tv.get_children('')]
-        try:
-            data_list.sort(key=lambda t: datetime.strptime(t[0], '%d/%m/%Y'), reverse=reverse)
-        except ValueError:
+        
+        # Função auxiliar para converter datas
+        def convert_date(date_str):
             try:
-                data_list.sort(key=lambda t: float(t[0].replace(',', '.')), reverse=reverse)
-            except ValueError:
-                data_list.sort(reverse=reverse)
+                return datetime.strptime(date_str, '%d/%m/%Y')
+            except:
+                return datetime.min
+
+        # Função melhorada para converter IDs considerando formato XXXX-YYYY
+        def convert_id(id_str):
+            try:
+                # Remove espaços e verifica se está vazio
+                if not id_str or id_str.strip() == '':
+                    return -1
+                
+                # Separa o ID no hífen e pega a segunda parte
+                parts = id_str.strip().split('-')
+                if len(parts) == 2:
+                    return int(parts[1].strip())  # Converte apenas a parte YYYY
+                return -1  # Retorna -1 para formatos inválidos
+                
+            except (ValueError, TypeError, IndexError):
+                return -1  # Retorna -1 para qualquer erro
+
+        # Determinando o tipo de ordenação baseado na coluna
+        if col in ['Carimbo de data/hora_str', 'Ultima Atualizacao_str']:
+            data_list.sort(key=lambda x: convert_date(x[0]), reverse=reverse)
+        elif col == 'Id':
+            # Ordena por ID (considerando apenas parte após o hífen) e depois por data
+            data_list.sort(key=lambda x: (convert_id(x[0]), convert_date(tv.set(x[1], 'Carimbo de data/hora_str'))), reverse=reverse)
+        elif col == 'Valor':
+            data_list.sort(key=lambda x: float(x[0].replace('R$', '').replace('.', '').replace(',', '.').strip() or 0), reverse=reverse)
+        else:
+            data_list.sort(key=lambda x: str(x[0]).lower(), reverse=reverse)
+
+        # Reordenando os itens
         for index, (val, k) in enumerate(data_list):
             tv.move(k, '', index)
+
+        # Atualizando o cabeçalho com a seta
         arrow = "▲" if reverse else "▼"
         display_name = self.column_display_names.get(col, col)
         new_text = f"{display_name} {arrow}"
 
+        # Removendo setas de todas as colunas
         for column in tv["columns"]:
             display_name = self.column_display_names.get(column, column)
-            tv.heading(column, text=display_name, command=lambda _col=column: self.treeview_sort_column(tv, _col, False))
+            tv.heading(column, text=display_name)
 
-        tv.heading(col, text=new_text, command=lambda: self.treeview_sort_column(tv, col, not reverse))
+        # Adicionando seta apenas na coluna ordenada
+        tv.heading(col, text=new_text)
+
+        # Configurando o próximo clique para inverter a ordem
+        tv.heading(col, command=lambda: self.treeview_sort_column(tv, col, not reverse))
 
     def on_treeview_click(self, event):
         if self.user_role == "A1":
