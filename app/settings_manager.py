@@ -12,6 +12,17 @@ BTN_WIDTH = 35
 
 USERS_DB_FILE = "users_db.json"
 
+# Tamanhos padrão de janelas
+WINDOW_SIZES = {
+    'settings': (600, 480),  # Janela principal de configurações
+    'column_selector': (600, 480),  # Seletor de colunas
+    'user_manager': (600, 480),  # Gerenciador de usuários
+    'add_user': (400, 480),  # Adicionar usuário
+    'email_template': (600, 480),  # Editor de template de email
+    'notification': (600, 480),  # Configuração de notificações
+    'add_email': (400, 150),  # Adicionar email dialog
+}
+
 def load_users_db():
     if os.path.exists(USERS_DB_FILE):
         with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
@@ -58,7 +69,7 @@ class SettingsManager:
 
         self.settings_window = tb.Toplevel(self.app.root)
         self.settings_window.title("Configurações")
-        w, h = 800, 500
+        w, h = WINDOW_SIZES['settings']
         self._center_window(self.settings_window, w, h)
 
         main_frame = tb.Frame(self.settings_window)
@@ -99,6 +110,15 @@ class SettingsManager:
                 command=self.setup_notification_cargos
             )
             notif_btn.grid(row=2, column=0, sticky='w', pady=10)
+
+            history_btn = tb.Button(
+                col1,
+                text="Histórico de alterações",
+                bootstyle=INFO,
+                width=BTN_WIDTH,
+                command=self.show_logs
+            )
+            history_btn.grid(row=3, column=0, sticky='w', pady=10)
             
         row_start_col = 5
         columns_label = tb.Label(col1, text="Definição de Colunas", font=("Helvetica", 10, "bold"))
@@ -177,7 +197,8 @@ class SettingsManager:
     def open_column_selector(self, view_name):
         sel_window = tb.Toplevel(self.app.root)
         sel_window.title(f"Colunas - {view_name}")
-        sel_window.geometry("700x400")
+        w, h = WINDOW_SIZES['column_selector']
+        self._center_window(sel_window, w, h)
 
         top_label = tb.Label(sel_window, text=f"Colunas para: {view_name}", font=("Helvetica", 11, "bold"))
         top_label.pack(pady=5)
@@ -294,7 +315,8 @@ class SettingsManager:
     def edit_email_template(self, motivo):
         template_window = tb.Toplevel(self.app.root)
         template_window.title(motivo)
-        template_window.geometry("600x400")
+        w, h = WINDOW_SIZES['email_template']
+        self._center_window(template_window, w, h)
 
         label = tb.Label(template_window, text=f"Modelo de E-mail: {motivo}", font=("Helvetica", 12))
         label.pack(pady=10)
@@ -319,7 +341,7 @@ class SettingsManager:
     def user_management(self):
         um_window = tb.Toplevel(self.app.root)
         um_window.title("Gerenciar Usuários")
-        w, h = 600, 500  # Aumentado para comportar melhor os elementos
+        w, h = WINDOW_SIZES['user_manager']
         self._center_window(um_window, w, h)
 
         db_users = load_users_db()
@@ -344,7 +366,7 @@ class SettingsManager:
         def add_user():
             addw = tb.Toplevel(um_window)
             addw.title("Adicionar Usuário")
-            w, h = 400, 400  # Aumentado para comportar confirmação de senha
+            w, h = WINDOW_SIZES['add_user']
             self._center_window(addw, w, h)
 
             tk.Label(addw, text="Login:").pack(pady=5)
@@ -430,7 +452,7 @@ class SettingsManager:
     def setup_notification_cargos(self):
         notif_window = tb.Toplevel(self.app.root)
         notif_window.title("Configurar Emails de Notificação")
-        w, h = 800, 600
+        w, h = WINDOW_SIZES['notification']
         self._center_window(notif_window, w, h)
 
         notebook = tb.Notebook(notif_window)
@@ -475,7 +497,7 @@ class SettingsManager:
             def add_email(lb=listbox, et=event_type):
                 dialog = tb.Toplevel(notif_window)
                 dialog.title("Adicionar Email")
-                w, h = 400, 150
+                w, h = WINDOW_SIZES['add_email']
                 self._center_window(dialog, w, h)
 
                 tk.Label(dialog, text="Email:").pack(pady=5)
@@ -512,3 +534,8 @@ class SettingsManager:
         # Botão de fechar
         tb.Button(notif_window, text="Fechar", bootstyle=PRIMARY, 
                  command=notif_window.destroy).pack(pady=10)
+
+    def show_logs(self):
+        """Abre o visualizador de logs"""
+        from app.log_viewer import LogViewer
+        LogViewer(self.app.root)

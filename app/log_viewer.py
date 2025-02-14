@@ -14,10 +14,19 @@ class LogViewer:
     def __init__(self, parent):
         self.window = tb.Toplevel(parent)
         self.window.title("Visualizador de Logs")
-        self.window.geometry("1200x700")
+        w, h = 1000, 600  # Tamanho padrão para visualizador de logs
+        self._center_window(self.window, w, h)
         
         self.setup_ui()
         self.load_logs()
+
+    def _center_window(self, window, w, h):
+        """Centraliza qualquer janela"""
+        ws = window.winfo_screenwidth()
+        hs = window.winfo_screenheight()
+        x = (ws - w) // 2
+        y = (hs - h) // 2
+        window.geometry(f"{w}x{h}+{x}+{y}")
 
     def setup_ui(self):
         # Frame principal

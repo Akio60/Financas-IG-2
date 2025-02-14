@@ -361,85 +361,94 @@ class DetailsManager:
 
         # Layout centralizado por view
         if view == "Aceitas":
-            # Coloca os botões nas colunas 2, 3 e 4 (centro do grid 7x5)
+            # Coloca os botões com largura menor nas colunas 2, 3 e 4 (centro do grid 7x5)
             req_btn = tb.Button(
-                actions_tab, 
-                text="Requerir Documentos",
-                width=BTN_WIDTH,
-                bootstyle=WARNING,
-                command=lambda: self.request_documents(row_data)
+            actions_tab, 
+            text="Requerir Documentos",
+            width=50,
+            bootstyle=WARNING,
+            command=lambda: self.request_documents(row_data)
             )
             req_btn.grid(row=1, column=2, columnspan=3, pady=BTN_PAD)
 
             auth_btn = tb.Button(
-                actions_tab,
-                text="Autorizar Pagamento", 
-                width=BTN_WIDTH,
-                bootstyle=SUCCESS,
-                command=authorize_payment
+            actions_tab,
+            text="Autorizar Pagamento", 
+            width=50,
+            bootstyle=SUCCESS,
+            command=authorize_payment
             )
             auth_btn.grid(row=2, column=2, columnspan=3, pady=BTN_PAD)
 
             cancel_btn = tb.Button(
-                actions_tab,
-                text="Recusar/Cancelar Auxílio",
-                width=BTN_WIDTH,
-                bootstyle=DANGER,
-                command=cancel_auxilio
+            actions_tab,
+            text="Recusar/Cancelar Auxílio",
+            width=50,
+            bootstyle=DANGER,
+            command=cancel_auxilio
             )
             cancel_btn.grid(row=3, column=2, columnspan=3, pady=BTN_PAD)
 
         elif view == "Aguardando documentos":
             auth_btn = tb.Button(
-                actions_tab,
-                text="Autorizar Pagamento",
-                width=BTN_WIDTH,
-                bootstyle=SUCCESS,
-                command=authorize_payment
+            actions_tab,
+            text="Autorizar Pagamento",
+            width=50,
+            bootstyle=SUCCESS,
+            command=authorize_payment
             )
             auth_btn.grid(row=1, column=2, columnspan=3, pady=BTN_PAD)
 
             cancel_btn = tb.Button(
-                actions_tab,
-                text="Recusar/Cancelar Auxílio",
-                width=BTN_WIDTH,
-                bootstyle=DANGER,
-                command=cancel_auxilio
+            actions_tab,
+            text="Recusar/Cancelar Auxílio",
+            width=50,
+            bootstyle=DANGER,
+            command=cancel_auxilio
             )
             cancel_btn.grid(row=2, column=2, columnspan=3, pady=BTN_PAD)
 
             req_btn = tb.Button(
-                actions_tab,
-                text="Requerir Documentos Novamente",
-                width=BTN_WIDTH,
-                bootstyle=WARNING,
-                command=lambda: self.request_documents(row_data)
+            actions_tab,
+            text="Requerir Documentos Novamente",
+            width=50,
+            bootstyle=WARNING,
+            command=lambda: self.request_documents(row_data)
             )
             req_btn.grid(row=3, column=2, columnspan=3, pady=BTN_PAD)
 
         elif view == "Pronto para pagamento":
             payment_btn = tb.Button(
-                actions_tab,
-                text="Pagamento Efetuado",
-                width=BTN_WIDTH,
-                bootstyle=SUCCESS,
-                command=payment_made
+            actions_tab,
+            text="Pagamento Efetuado",
+            width=50,
+            bootstyle=SUCCESS,
+            command=payment_made
             )
             payment_btn.grid(row=1, column=2, columnspan=3, pady=BTN_PAD)
 
             cancel_btn = tb.Button(
-                actions_tab,
-                text="Recusar/Cancelar Auxílio",
-                width=BTN_WIDTH,
-                bootstyle=DANGER,
-                command=cancel_auxilio
+            actions_tab,
+            text="Recusar/Cancelar Auxílio",
+            width=50,
+            bootstyle=DANGER,
+            command=cancel_auxilio
             )
             cancel_btn.grid(row=2, column=2, columnspan=3, pady=BTN_PAD)
+
+    def _center_window(self, window, w, h):
+        """Centraliza qualquer janela"""
+        ws = window.winfo_screenwidth()
+        hs = window.winfo_screenheight()
+        x = (ws - w) // 2
+        y = (hs - h) // 2
+        window.geometry(f"{w}x{h}+{x}+{y}")
 
     def show_details_in_new_window(self, row_data):
         detail_window = tb.Toplevel(self.app.root)
         detail_window.title("Detalhes da Solicitação")
-        detail_window.geometry("800x600")
+        w, h = 800, 600  # Tamanho padrão para janela de detalhes
+        self._center_window(detail_window, w, h)
 
         detail_frame = tb.Frame(detail_window)
         detail_frame.pack(fill=BOTH, expand=True)
@@ -624,7 +633,8 @@ class DetailsManager:
         """Janela unificada com abas para preview dos emails"""
         email_window = tb.Toplevel(self.app.root)
         email_window.title("Gerenciamento de Emails")
-        email_window.geometry("800x600")
+        w, h = 800, 600  # Tamanho padrão para janela de emails
+        self._center_window(email_window, w, h)
 
         # Frame principal com notebook
         notebook = tb.Notebook(email_window)
