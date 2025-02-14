@@ -299,7 +299,7 @@ class DetailsManager:
 
     def on_history_treeview_click(self, event):
         selected_item = event.widget.selection()
-        if selected_item:
+        if (selected_item):
             item_iid = selected_item[0]
             selected_row = self.app.history_tree_data.loc[int(item_iid)]
             self.show_details_in_new_window(selected_row)
@@ -447,8 +447,12 @@ class DetailsManager:
     def show_details_in_new_window(self, row_data):
         detail_window = tb.Toplevel(self.app.root)
         detail_window.title("Detalhes da Solicitação")
-        w, h = 800, 600  # Tamanho padrão para janela de detalhes
+        w, h = 800, 600  # Tamanho fixo
         self._center_window(detail_window, w, h)
+        # Impedir redimensionamento e maximização
+        detail_window.resizable(False, False)
+        # Remover botões de maximizar/minimizar
+        detail_window.attributes('-toolwindow', True)
 
         detail_frame = tb.Frame(detail_window)
         detail_frame.pack(fill=BOTH, expand=True)
@@ -539,7 +543,12 @@ class DetailsManager:
         
         progress_window = tb.Toplevel(self.app.root)
         progress_window.title("Enviando Emails")
-        progress_window.geometry("500x400")
+        w, h = 500, 400  # Tamanho fixo
+        self._center_window(progress_window, w, h)
+        # Impedir redimensionamento e maximização
+        progress_window.resizable(False, False)
+        # Remover botões de maximizar/minimizar
+        progress_window.attributes('-toolwindow', True)
         progress_window.transient(self.app.root)
         progress_window.grab_set()
 
@@ -633,8 +642,12 @@ class DetailsManager:
         """Janela unificada com abas para preview dos emails"""
         email_window = tb.Toplevel(self.app.root)
         email_window.title("Gerenciamento de Emails")
-        w, h = 800, 600  # Tamanho padrão para janela de emails
+        w, h = 800, 600  # Tamanho fixo
         self._center_window(email_window, w, h)
+        # Impedir redimensionamento e maximização
+        email_window.resizable(False, False)
+        # Remover botões de maximizar/minimizar
+        email_window.attributes('-toolwindow', True)
 
         # Frame principal com notebook
         notebook = tb.Notebook(email_window)

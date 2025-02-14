@@ -26,7 +26,6 @@ class App:
         self.email_sender = email_sender
         self.user_role = user_role
         self.user_name = user_name
-        self.user_role_name = SettingsManager.ROLE_NAMES.get(user_role, user_role)
 
         # Variáveis de controle
         self.detail_columns_to_display = ALL_COLUMNS_DETAIL.copy()
@@ -223,6 +222,14 @@ class App:
         )
         self.statistics_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
 
+        self.log_history_button = tb.Button(
+            bottom_buttons_frame,
+            text="Histórico de alterações",
+            bootstyle=OUTLINE,
+            command=self.show_logs  # Mudado para usar show_logs diretamente
+        )
+        self.log_history_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
+
         self.view_all_button = tb.Button(
             bottom_buttons_frame,
             text="Histórico de solicitações",
@@ -236,7 +243,7 @@ class App:
 
         status_label = tb.Label(
             bottom_frame,
-            text=f"Você está conectado como {self.user_name} ({self.user_role_name})",
+            text=f"Você está conectado como {self.user_name} (Cargo: {self.user_role})",
             font=("Helvetica", 10)
         )
         status_label.pack(side=LEFT, padx=10, pady=10)

@@ -54,6 +54,11 @@ class SettingsManager:
 
         self.users_db = load_users_db()
 
+    def _prevent_resize_maximize(self, window):
+        """Impede redimensionamento e maximização da janela"""
+        window.resizable(False, False)
+        window.attributes('-toolwindow', True)
+
     def _center_window(self, window, w, h):
         """Centraliza qualquer janela"""
         ws = window.winfo_screenwidth()
@@ -71,6 +76,7 @@ class SettingsManager:
         self.settings_window.title("Configurações")
         w, h = WINDOW_SIZES['settings']
         self._center_window(self.settings_window, w, h)
+        self._prevent_resize_maximize(self.settings_window)
 
         main_frame = tb.Frame(self.settings_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
@@ -199,6 +205,7 @@ class SettingsManager:
         sel_window.title(f"Colunas - {view_name}")
         w, h = WINDOW_SIZES['column_selector']
         self._center_window(sel_window, w, h)
+        self._prevent_resize_maximize(sel_window)
 
         top_label = tb.Label(sel_window, text=f"Colunas para: {view_name}", font=("Helvetica", 11, "bold"))
         top_label.pack(pady=5)
@@ -317,6 +324,7 @@ class SettingsManager:
         template_window.title(motivo)
         w, h = WINDOW_SIZES['email_template']
         self._center_window(template_window, w, h)
+        self._prevent_resize_maximize(template_window)
 
         label = tb.Label(template_window, text=f"Modelo de E-mail: {motivo}", font=("Helvetica", 12))
         label.pack(pady=10)
@@ -343,6 +351,7 @@ class SettingsManager:
         um_window.title("Gerenciar Usuários")
         w, h = WINDOW_SIZES['user_manager']
         self._center_window(um_window, w, h)
+        self._prevent_resize_maximize(um_window)
 
         db_users = load_users_db()
 
@@ -368,6 +377,7 @@ class SettingsManager:
             addw.title("Adicionar Usuário")
             w, h = WINDOW_SIZES['add_user']
             self._center_window(addw, w, h)
+            self._prevent_resize_maximize(addw)
 
             tk.Label(addw, text="Login:").pack(pady=5)
             login_var = tk.StringVar()
@@ -454,6 +464,7 @@ class SettingsManager:
         notif_window.title("Configurar Emails de Notificação")
         w, h = WINDOW_SIZES['notification']
         self._center_window(notif_window, w, h)
+        self._prevent_resize_maximize(notif_window)
 
         notebook = tb.Notebook(notif_window)
         notebook.pack(fill=BOTH, expand=True, padx=10, pady=10)
@@ -499,6 +510,7 @@ class SettingsManager:
                 dialog.title("Adicionar Email")
                 w, h = WINDOW_SIZES['add_email']
                 self._center_window(dialog, w, h)
+                self._prevent_resize_maximize(dialog)
 
                 tk.Label(dialog, text="Email:").pack(pady=5)
                 email_var = tk.StringVar()
