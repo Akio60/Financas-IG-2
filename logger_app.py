@@ -37,29 +37,43 @@ credentials_file = "credentials.json"
 # Variáveis globais para spreadsheet e worksheets
 _spreadsheet = None
 _worksheets = {}
+_last_auth_time = None
+_auth_timeout = 3500  # 58 minutos
 
-def get_spreadsheet():
-    """Função para obter ou criar conexão com spreadsheet"""
-    global _spreadsheet
-    if _spreadsheet is None:
+def reauthorize():
+    """Reconecta com o Google Sheets se necessário"""
+    global _spreadsheet, _last_auth_time
+    
+    current_time = datetime.datetime.now()
+    if (_last_auth_time is None or 
+        (current_time - _last_auth_time).total_seconds() > _auth_timeout):
         try:
             creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_file, scope)
             client = gspread.authorize(creds)
             _spreadsheet = client.open_by_url(SPREADSHEET_URL)
+            _last_auth_time = current_time
+            
+            # Limpa cache de worksheets quando reautoriza
+            _worksheets.clear()
         except Exception as e:
-            logging.error(f"Erro ao conectar com Google Sheets: {e}")
-            return None
+            logging.error(f"Erro ao reautorizar: {str(e)}")
+            return False
+    return True
+
+def get_spreadsheet():
+    """Função para obter ou criar conexão com spreadsheet"""
+    if not reauthorize():
+        return None
     return _spreadsheet
 
 def get_worksheet(sheet_name):
     """Função para obter ou criar worksheet"""
-    global _worksheets
-    if sheet_name not in _worksheets:
+    if sheet_name not in _worksheets or not reauthorize():
         try:
             spreadsheet = get_spreadsheet()
             if not spreadsheet:
                 return None
-                
+            
             try:
                 worksheet = spreadsheet.worksheet(sheet_name)
             except gspread.exceptions.WorksheetNotFound:
@@ -89,9 +103,7 @@ def setup_logger():
 
 def append_log(level: LogLevel, category: LogCategory, user: str, action: str, 
                details: str, ip: str = "", status: str = "SUCCESS"):
-    """
-    Adiciona um novo registro de log com informações detalhadas.
-    """
+    """Adiciona um novo registro de log com informações detalhadas."""
     try:
         timestamp = datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')
         
@@ -140,7 +152,7 @@ def log_data_change(user: str, action: str, details: str):
         LogCategory.DATA_CHANGE,
         user,
         action,
-        details
+        details,
     )
 
 def log_security_event(user: str, action: str, details: str, ip: str = ""):
@@ -217,7 +229,6 @@ def get_logs(level: LogLevel = None, category: LogCategory = None,
                     record_date = datetime.datetime.strptime(record['Timestamp'].split()[0], '%d/%m/%Y')
                     if record_date > datetime.datetime.strptime(end_date, '%d/%m/%Y'):
                         continue
-                    
                 filtered_records.append(record)
             
             all_logs.extend(filtered_records)
@@ -238,10 +249,10 @@ def export_logs(filepath: str, format: str = 'json', **filters):
     try:
         logs = get_logs(**filters)
         
+        # Ordena por timestamp e limita quantidade
         if format == 'json':
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(logs, f, ensure_ascii=False, indent=4)
-        
         elif format == 'csv':
             import csv
             with open(filepath, 'w', newline='', encoding='utf-8') as f:

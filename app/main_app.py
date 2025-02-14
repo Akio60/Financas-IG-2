@@ -226,7 +226,7 @@ class App:
             bottom_buttons_frame,
             text="Histórico de alterações",
             bootstyle=OUTLINE,
-            command=self.show_log_history
+            command=self.show_logs  # Mudado para usar show_logs diretamente
         )
         self.log_history_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
 
@@ -237,14 +237,6 @@ class App:
             command=lambda: self.select_view("Todos")
         )
         self.view_all_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
-
-        logs_btn = tb.Button(
-            bottom_buttons_frame,
-            text="Logs",
-            bootstyle=INFO,
-            command=self.show_logs
-        )
-        logs_btn.pack(side=LEFT, padx=2)
 
         bottom_frame = tb.Frame(self.root)
         bottom_frame.pack(side=BOTTOM, fill=X)
@@ -620,73 +612,6 @@ class App:
             messagebox.showinfo("Aviso", "Acesso restrito ao admin (A5).")
             return
         self.settings_manager.open_settings()
-
-    def show_log_history(self):
-        try:
-            from oauth2client.service_account import ServiceAccountCredentials
-            import gspread
-        except ImportError:
-            messagebox.showerror("Erro", "As bibliotecas gspread e oauth2client são necessárias para acessar o Google Sheets.")
-            return
-
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        try:
-            creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
-        except Exception as e:
-            messagebox.showerror("Erro de Credenciais", f"Erro ao carregar o arquivo de credenciais: {e}")
-            return
-        client = gspread.authorize(creds)
-
-        SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/15_0ArdsS89PRz1FmMmpTU9GQzETnUws6Ta-_TNCWITQ/edit?usp=sharing"
-        try:
-            spreadsheet = client.open_by_url(SPREADSHEET_URL)
-        except Exception as e:
-            messagebox.showerror("Erro", f"Erro ao abrir a planilha: {e}")
-            return
-
-        try:
-            info_sheet = spreadsheet.worksheet("Info")
-        except Exception as e:
-            messagebox.showerror("Erro", f"Não foi possível acessar a aba 'Info': {e}")
-            return
-
-        try:
-            error_sheet = spreadsheet.worksheet("Errors")
-        except Exception as e:
-            messagebox.showerror("Erro", f"Não foi possível acessar a aba 'Errors': {e}")
-            return
-
-        info_data = info_sheet.get_all_values()
-        error_data = error_sheet.get_all_values()
-
-        info_lines = [" | ".join(row) for row in info_data[1:]] if len(info_data) > 1 else []
-        error_lines = [" | ".join(row) for row in error_data[1:]] if len(error_data) > 1 else []
-
-        log_window = tb.Toplevel(self.root)
-        log_window.title("Histórico de Alterações")
-        log_window.geometry("800x600")
-
-        main_frame = tb.Frame(log_window, padding=20)
-        main_frame.pack(fill=BOTH, expand=True)
-
-        left_frame = tb.Frame(main_frame)
-        left_frame.pack(side=LEFT, fill=BOTH, expand=True, padx=10)
-        right_frame = tb.Frame(main_frame)
-        right_frame.pack(side=RIGHT, fill=BOTH, expand=True, padx=10)
-
-        error_label = tb.Label(left_frame, text="[ERROR]", font=("Helvetica", 12, "bold"))
-        error_label.pack(anchor="w")
-        error_text = tb.ScrolledText(left_frame, width=40, height=30)
-        error_text.pack(fill=BOTH, expand=True)
-        error_text.insert('1.0', "\n".join(error_lines))
-        error_text.configure(state='disabled')
-
-        info_label = tb.Label(right_frame, text="[INFO]", font=("Helvetica", 12, "bold"))
-        info_label.pack(anchor="w")
-        info_text = tb.ScrolledText(right_frame, width=40, height=30)
-        info_text.pack(fill=BOTH, expand=True)
-        info_text.insert('1.0', "\n".join(info_lines))
-        info_text.configure(state='disabled')
 
     def show_logs(self):
         """Abre o visualizador de logs"""
