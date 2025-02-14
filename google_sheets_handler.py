@@ -56,7 +56,11 @@ class GoogleSheetsHandler:
                 id_value = self.sheet.cell(row_number, self.column_indices.get('Id', 1)).value
                 
                 # Log incluindo o ID da solicitação
-                logger_app.log_info(f"update_status: {user_name} mudou status para {new_status}, ID={id_value}, timestamp={timestamp_value}")
+                logger_app.log_data_change(
+                    user=user_name or "SYSTEM",
+                    action="UPDATE_STATUS",
+                    details=f"Status alterado para {new_status}, ID={id_value}, timestamp={timestamp_value}"
+                )
                 return True
         return False
 
@@ -77,7 +81,11 @@ class GoogleSheetsHandler:
                 # Obtém o ID da solicitação
                 id_value = self.sheet.cell(row_number, self.column_indices.get('Id', 1)).value
                 
-                logger_app.log_info(f"update_value: {user_name} alterou valor para {new_value}, ID={id_value}, timestamp={timestamp_value}")
+                logger_app.log_data_change(
+                    user=user_name or "SYSTEM", 
+                    action="UPDATE_VALUE",
+                    details=f"Valor alterado para {new_value}, ID={id_value}, timestamp={timestamp_value}"
+                )
                 return True
         return False
 
@@ -104,7 +112,11 @@ class GoogleSheetsHandler:
                     if 'Observações' in self.column_indices:
                         col_number = self.column_indices['Observações']
                         self.sheet.update_cell(row_number, col_number, observations)
-                        logger_app.log_info(f"update_observations: Observações atualizadas para timestamp={timestamp_value}")
+                        logger_app.log_data_change(
+                            user="SYSTEM",
+                            action="UPDATE_OBSERVATIONS",
+                            details=f"Observações atualizadas para timestamp={timestamp_value}"
+                        )
                         return True
             return False
         except Exception as e:

@@ -831,6 +831,7 @@ class DetailsManager:
         self.cancel_btn.config(state='disabled')
         self.confirm_btn.config(state='disabled')
         self.edit_btn.config(state='normal')
+        
     def send_direct_email(self, recipient, subject, body):
         """Envia email direto sem interface"""
         try:

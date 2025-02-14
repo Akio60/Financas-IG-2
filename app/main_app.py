@@ -7,7 +7,6 @@ from datetime import datetime, date
 from PIL import Image, ImageTk
 from tkinter import messagebox, BOTH, LEFT, Y, RIGHT, X, END
 import sys
-import calendar
 
 from constants import (
     ALL_COLUMNS_DETAIL, ALL_COLUMNS, BG_COLOR, BUTTON_BG_COLOR, FRAME_BG_COLOR,
@@ -239,6 +238,14 @@ class App:
         )
         self.view_all_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
 
+        logs_btn = tb.Button(
+            bottom_buttons_frame,
+            text="Logs",
+            bootstyle=INFO,
+            command=self.show_logs
+        )
+        logs_btn.pack(side=LEFT, padx=2)
+
         bottom_frame = tb.Frame(self.root)
         bottom_frame.pack(side=BOTTOM, fill=X)
 
@@ -426,7 +433,7 @@ class App:
             self.columns_to_display = [
                 'Id', 'Carimbo de data/hora_str', 'Ultima Atualizacao_str', 'Ultima modificação',
                 'Nome completo (sem abreviações):', 'Telefone de contato:',
-                'Curso:', 'Orientador', 'Valor'
+                'Curso:', 'Orientador', 'Valor', 'Status'
             ]
 
         self.tree["columns"] = self.columns_to_display
@@ -680,3 +687,8 @@ class App:
         info_text.pack(fill=BOTH, expand=True)
         info_text.insert('1.0', "\n".join(info_lines))
         info_text.configure(state='disabled')
+
+    def show_logs(self):
+        """Abre o visualizador de logs"""
+        from app.log_viewer import LogViewer
+        LogViewer(self.root)

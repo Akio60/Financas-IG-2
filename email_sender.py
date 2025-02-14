@@ -60,7 +60,12 @@ class EmailSender:
                 server.starttls()
                 server.login(self.sender_email, self.sender_password)
                 server.sendmail(self.sender_email, recipient, msg.as_string())
-                logger_app.log_info(f"E-mail enviado com sucesso para {recipient}")
+                logger_app.log_email(
+                    user="SYSTEM",
+                    recipient=recipient,
+                    subject=subject,
+                    status="SUCCESS"
+                )
                 messagebox.showinfo("Sucesso", f"E-mail enviado com sucesso para {recipient}!")
             except Exception as e:
                 raise Exception(f"Erro ao enviar email: {str(e)}")
