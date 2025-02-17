@@ -1,5 +1,6 @@
 # details_manager.py
 
+import tkinter as tk
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 from ttkbootstrap.constants import *
@@ -551,6 +552,7 @@ class DetailsManager:
         progress_window.attributes('-toolwindow', True)
         progress_window.transient(self.app.root)
         progress_window.grab_set()
+        progress_window.focus_set()
 
         main_frame = tb.Frame(progress_window, padding=20)
         main_frame.pack(fill=BOTH, expand=True)
@@ -581,50 +583,63 @@ class DetailsManager:
         status_label.pack(pady=5)
 
         def process_emails():
-            all_success = True
-            success_count = 0
+            try:
+                all_success = True
+                success_count = 0
 
-            for i, email in enumerate(emails_to_send):
-                try:
-                    status_label.config(text=f"Enviando para {email['recipient']}...")
-                    self.app.email_sender.send_email(
-                        email["recipient"],
-                        email["subject"],
-                        email["body"]
+                for i, email in enumerate(emails_to_send):
+                    try:
+                        # Verifica se a janela ainda existe
+                        if not progress_window.winfo_exists():
+                            return
+                            
+                        status_label.config(text=f"Enviando para {email['recipient']}...")
+                        self.app.email_sender.send_email(
+                            email["recipient"],
+                            email["subject"],
+                            email["body"]
+                        )
+                        tree.set(str(i), "Status", "✓ Enviado")
+                        success_count += 1
+                    except Exception as e:
+                        logger_app.log_error(f"Erro ao enviar email: {str(e)}")
+                        tree.set(str(i), "Status", "✗ Erro")
+                        all_success = False
+
+                    progress["value"] = i + 1
+                    progress_window.update()
+
+                # Verifica novamente se a janela existe antes de atualizar o status
+                if not progress_window.winfo_exists():
+                    return
+                    
+                # Só atualiza o status se todos os emails foram enviados com sucesso
+                if all_success and new_status:
+                    ts_str = row_data['Carimbo de data/hora']
+                    if new_value:
+                        self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name)
+                    self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
+                    status_label.config(
+                        text=f"Concluído! {success_count} emails enviados. Status atualizado."
                     )
-                    tree.set(str(i), "Status", "✓ Enviado")
-                    success_count += 1
-                except Exception as e:
-                    logger_app.log_error(f"Erro ao enviar email: {str(e)}")
-                    tree.set(str(i), "Status", "✗ Erro")
-                    all_success = False
+                else:
+                    status_label.config(
+                        text=f"Atenção! {success_count} de {len(emails_to_send)} emails enviados."
+                    )
 
-                progress["value"] = i + 1
-                progress_window.update()
+                close_btn.config(state="normal")
+                
+                # Se todos os emails foram enviados com sucesso, fecha as janelas após 2 segundos
+                if all_success:
+                    progress_window.after(2000, lambda: [
+                        progress_window.destroy() if progress_window.winfo_exists() else None,
+                        self.app.update_table(),
+                        self.app.go_to_home()
+                    ])
 
-            # Só atualiza o status se todos os emails foram enviados com sucesso
-            if all_success and new_status:
-                ts_str = row_data['Carimbo de data/hora']
-                if new_value:
-                    self.app.sheets_handler.update_value(ts_str, new_value, self.app.user_name)
-                self.app.sheets_handler.update_status(ts_str, new_status, self.app.user_name)
-                status_label.config(
-                    text=f"Concluído! {success_count} emails enviados. Status atualizado."
-                )
-            else:
-                status_label.config(
-                    text=f"Atenção! {success_count} de {len(emails_to_send)} emails enviados."
-                )
-
-            close_btn.config(state="normal")
-            
-            # Se todos os emails foram enviados com sucesso, fecha as janelas após 2 segundos
-            if all_success:
-                progress_window.after(2000, lambda: [
-                    progress_window.destroy(),
-                    self.app.update_table(),
-                    self.app.go_to_home()
-                ])
+            except tk.TclError:
+                # Ignora erros se a janela já foi fechada
+                pass
 
         close_btn = tb.Button(
             main_frame,
@@ -636,6 +651,7 @@ class DetailsManager:
 
         import threading
         thread = threading.Thread(target=process_emails)
+        thread.daemon = True  # Thread será encerrada quando o programa principal fechar
         thread.start()
 
     def unified_email_window(self, row_data, status_update, notification_data=None, value=None):
