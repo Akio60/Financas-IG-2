@@ -221,9 +221,9 @@ class DetailsManager:
                 if row_data['Status'] == '':
                     if self.app.user_role in ["A3", "A5"]:
                         value_label = tb.Label(tab_frame, text="Valor (R$):", font=("Helvetica", 12, "bold"))
-                        value_label.grid(row=row_idx, column=0, sticky='w', padx=10, pady=5)
+                        value_label.grid(row=row_idx, column=0, sticky='w', padx=20, pady=5)
                         value_entry = tb.Entry(tab_frame, width=50)
-                        value_entry.grid(row=row_idx, column=1, sticky='w', padx=10, pady=5)
+                        value_entry.grid(row=row_idx, column=0, sticky='w', padx=320, pady=5)
                         self.app.value_entry = value_entry
                         row_idx += 1
 
@@ -250,8 +250,8 @@ class DetailsManager:
 
                         autorizar_button = tb.Button(tab_frame, text="Autorizar Auxílio", bootstyle=SUCCESS, command=autorizar_auxilio)
                         negar_button = tb.Button(tab_frame, text="Recusar/Cancelar Auxílio", bootstyle=DANGER, command=negar_auxilio)
-                        autorizar_button.grid(row=row_idx, column=0, padx=10, pady=10, sticky='w')
-                        negar_button.grid(row=row_idx, column=1, padx=10, pady=10, sticky='w')
+                        autorizar_button.grid(row=row_idx, column=0, padx=320, pady=10, sticky='w')
+                        negar_button.grid(row=row_idx, column=0, padx=480, pady=10, sticky='w')
                         row_idx += 1
 
                 # Histórico de Solicitações – ajuste de espaçamento
