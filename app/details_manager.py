@@ -667,6 +667,8 @@ class DetailsManager:
         email_window.resizable(False, False)
         # Remover botões de maximizar/minimizar
         email_window.attributes('-toolwindow', True)
+        # Manter janela sempre no topo
+        email_window.attributes('-topmost', True)
 
         # Frame principal com notebook
         notebook = tb.Notebook(email_window)
@@ -743,6 +745,8 @@ class DetailsManager:
         self.attachment_label.pack(side=LEFT, padx=5)
 
         def select_attachment():
+            # Temporariamente desabilita topmost para permitir diálogo de arquivo
+            email_window.attributes('-topmost', False)
             file_path = filedialog.askopenfilename(
                 title="Selecione um arquivo para anexar",
                 filetypes=[
@@ -751,6 +755,10 @@ class DetailsManager:
                     ("Todos os arquivos", "*.*")
                 ]
             )
+            # Reabilita topmost após seleção
+            email_window.attributes('-topmost', True)
+            email_window.lift()  # Traz a janela de volta para frente
+
             if file_path:
                 self.attachment_path = file_path
                 base_name = os.path.basename(file_path)
