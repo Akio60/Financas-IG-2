@@ -5,6 +5,7 @@ import smtplib
 import threading
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 from tkinter import messagebox
 from constants import EMAIL_PASSWORD_ENV
 import logger_app
@@ -16,14 +17,15 @@ class EmailSender:
         self.sender_email = sender_email
         self.sender_password = EMAIL_PASSWORD_ENV
 
-    def send_email(self, recipient, subject, body):
+    def send_email(self, recipient, subject, body, attachment_path=None):
         """
-        Envio em thread para não travar a UI.
+        Envio de email com suporte a anexos.
+        attachment_path: Caminho do arquivo para anexar (opcional)
         """
-        thread = threading.Thread(target=self._send_email_thread, args=(recipient, subject, body))
+        thread = threading.Thread(target=self._send_email_thread, args=(recipient, subject, body, attachment_path))
         thread.start()
 
-    def _send_email_thread(self, recipient, subject, body):
+    def _send_email_thread(self, recipient, subject, body, attachment_path=None):
         try:
             if not self.sender_password:
                 raise ValueError("Senha do remetente não configurada. Verifique a variável de ambiente.")
@@ -54,6 +56,13 @@ class EmailSender:
             msg.attach(MIMEText(body, 'plain', 'utf-8'))
             msg.attach(MIMEText(html_body, 'html'))
 
+            # Anexa o arquivo se fornecido
+            if attachment_path and os.path.exists(attachment_path):
+                with open(attachment_path, 'rb') as f:
+                    part = MIMEApplication(f.read(), Name=os.path.basename(attachment_path))
+                    part['Content-Disposition'] = f'attachment; filename="{os.path.basename(attachment_path)}"'
+                    msg.attach(part)
+
             server = None
             try:
                 server = smtplib.SMTP(self.smtp_server, self.smtp_port)
@@ -66,7 +75,6 @@ class EmailSender:
                     subject=subject,
                     status="SUCCESS"
                 )
-                # Removido o messagebox individual
                 return True
             except Exception as e:
                 raise Exception(f"Erro ao enviar email: {str(e)}")

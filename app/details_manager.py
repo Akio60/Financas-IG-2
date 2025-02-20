@@ -11,6 +11,7 @@ import os
 import uuid
 import pandas as pd  # Adicionando import do pandas
 import logger_app
+from tkinter import filedialog
 
 FORM_FIELD_MAPPING = {
     'Nome completo (sem abreviações):': 'Nome do Solicitante',
@@ -45,6 +46,7 @@ class DetailsManager:
         self.FORM_FIELD_MAPPING = FORM_FIELD_MAPPING
         self.edit_mode = False
         self.original_text = ""
+        self.attachment_path = None  # Nova variável para armazenar caminho do anexo
 
     def show_details_in_place(self, row_data):
         if self.app.user_role == "A1":
@@ -597,7 +599,8 @@ class DetailsManager:
                         self.app.email_sender.send_email(
                             email["recipient"],
                             email["subject"],
-                            email["body"]
+                            email["body"],
+                            email.get("attachment")  # Passa o anexo se existir
                         )
                         tree.set(str(i), "Status", "✓ Enviado")
                         success_count += 1
@@ -731,6 +734,50 @@ class DetailsManager:
         solicitante_text.pack(fill=BOTH, expand=True)
         solicitante_text.insert('1.0', body)
 
+        # Adiciona frame para anexo após o campo de texto do email
+        attach_frame = tb.Frame(solicitante_tab)
+        attach_frame.pack(fill=X, padx=10, pady=5)
+
+        self.attachment_path = None  # Reset do caminho do anexo
+        self.attachment_label = tb.Label(attach_frame, text="Nenhum arquivo anexado")
+        self.attachment_label.pack(side=LEFT, padx=5)
+
+        def select_attachment():
+            file_path = filedialog.askopenfilename(
+                title="Selecione um arquivo para anexar",
+                filetypes=[
+                    ("Documentos", "*.pdf;*.doc;*.docx"),
+                    ("Imagens", "*.png;*.jpg;*.jpeg"),
+                    ("Todos os arquivos", "*.*")
+                ]
+            )
+            if file_path:
+                self.attachment_path = file_path
+                base_name = os.path.basename(file_path)
+                if len(base_name) > 40:  # Limita o tamanho do nome mostrado
+                    base_name = base_name[:37] + "..."
+                self.attachment_label.config(text=f"Anexo: {base_name}")
+
+        def clear_attachment():
+            self.attachment_path = None
+            self.attachment_label.config(text="Nenhum arquivo anexado")
+
+        attach_btn = tb.Button(
+            attach_frame,
+            text="Anexar Arquivo",
+            bootstyle=INFO,
+            command=select_attachment
+        )
+        attach_btn.pack(side=LEFT, padx=5)
+
+        clear_btn = tb.Button(
+            attach_frame,
+            text="Limpar Anexo",
+            bootstyle=SECONDARY,
+            command=clear_attachment
+        )
+        clear_btn.pack(side=LEFT, padx=5)
+
         # Se houver dados de notificação, configura a segunda aba
         if notification_data and notification_data.get('recipients'):
             notif_frame = tb.LabelFrame(notificacao_tab, text="Destinatários", padding=10)
@@ -751,12 +798,13 @@ class DetailsManager:
             # Prepara lista de emails para enviar
             emails_to_send = []
             
-            # Email para solicitante
+            # Email para solicitante (agora com anexo)
             emails_to_send.append({
                 "recipient": recipient_entry.get().strip(),
                 "subject": f"Atualização de Status - {status_update}",
                 "body": solicitante_text.get('1.0', 'end-1c'),
-                "type": "Solicitante"
+                "type": "Solicitante",
+                "attachment": self.attachment_path  # Adiciona o caminho do anexo
             })
             
             # Emails de notificação
