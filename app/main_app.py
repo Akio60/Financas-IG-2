@@ -69,7 +69,7 @@ class App:
         # Colunas customizadas (novos filtros)
         self.custom_views = {
             "Aguardando aprovação": [
-                'Carimbo de data/hora_str',
+                'Id', 'Carimbo de data/hora_str',
                 'Nome completo (sem abreviações):','Telefone de contato:',
                 'Curso:',
                 'Orientador',
