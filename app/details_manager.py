@@ -856,7 +856,20 @@ class DetailsManager:
         recipients = notification_emails.get(event_key, [])
         
         if recipients:
-            # Email para responsáveis sempre usa o template padrão de notificação
+            # Lógica melhorada para determinar o valor aprovado
+            try:
+                # Tenta obter o valor da entry se existir e for acessível
+                if (hasattr(self.app, 'value_entry') and 
+                    self.app.value_entry and 
+                    self.app.value_entry.winfo_exists()):
+                    valor_aprovado = self.app.value_entry.get().strip()
+                else:
+                    # Caso contrário, usa o valor já registrado
+                    valor_aprovado = row_data.get('Valor', '0,00')
+            except Exception:
+                # Em caso de qualquer erro, usa o valor já registrado
+                valor_aprovado = row_data.get('Valor', '0,00')
+
             body = (
                 f"Prezado(a) responsável,\n\n"
                 f"Uma solicitação teve seu status alterado e requer sua atenção.\n\n"
@@ -871,8 +884,8 @@ class DetailsManager:
                 f"Orientador: {row_data.get('Orientador', 'N/A')}\n\n"
                 f"=== INFORMAÇÕES FINANCEIRAS ===\n"
                 f"Valor Solicitado: R$ {row_data.get('Valor solicitado. Somente valor, sem pontos e vírgula', '0,00')}\n"
-                f"Valor Aprovado: R$ {row_data.get('Valor', '0,00')}\n"
-                f"Motivo: {row_data.get('Motivo da solicitação', 'N/A')}\n\n"
+                f"Valor Aprovado: R$ {valor_aprovado}\n"
+                f"Motivo: {row_data.get('Motivo da solicitação', 'N/A')}\n\n"                
                 f"Para acessar mais detalhes ou tomar ações, por favor acesse o sistema.\n\n"
                 f"Atenciosamente,\n"
                 f"Sistema Financeiro IG-UNICAMP\n\n"
