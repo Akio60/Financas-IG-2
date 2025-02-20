@@ -46,7 +46,8 @@ class GoogleSheetsHandler:
             if cell_value == timestamp_value:
                 row_number = idx
                 self.sheet.update_cell(row_number, self.column_indices['Status'], new_status)
-                current_timestamp = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+                # Formato modificado para DD-MM-YYYY HH:mm:ss
+                current_timestamp = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
                 self.sheet.update_cell(row_number, self.column_indices['Ultima Atualizacao'], current_timestamp)
 
                 if user_name and 'Ultima modificação' in self.column_indices:
@@ -71,7 +72,8 @@ class GoogleSheetsHandler:
             if cell_value == timestamp_value:
                 row_number = idx
                 self.sheet.update_cell(row_number, self.column_indices['Valor'], new_value)
-                current_timestamp = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+                # Formato modificado para DD-MM-YYYY HH:mm:ss
+                current_timestamp = datetime.now().strftime('%d-%m-%Y %H:%M:%S')
                 self.sheet.update_cell(row_number, self.column_indices['Ultima Atualizacao'], current_timestamp)
 
                 if user_name and 'Ultima modificação' in self.column_indices:
