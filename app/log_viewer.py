@@ -19,6 +19,8 @@ class LogViewer:
         
         self.setup_ui()
         self.load_logs()
+        self.setup_summary_frame()
+        self.setup_search_frame()
 
     def _center_window(self, window, w, h):
         """Não é mais necessário para a janela de logs, mas mantido para compatibilidade"""
@@ -57,6 +59,9 @@ class LogViewer:
         periods = ["Hoje", "Últimos 7 dias", "Últimos 30 dias", "Personalizado"]
         period_cb = tb.Combobox(filter_frame, textvariable=self.period_var, values=periods)
         period_cb.grid(row=1, column=2, padx=5, sticky='ew')
+
+        # Modificar o callback do combobox de período
+        period_cb.bind('<<ComboboxSelected>>', lambda e: self.on_period_change())
 
         # Filtro de Usuário
         tb.Label(filter_frame, text="Usuário:").grid(row=0, column=3, sticky='w')
@@ -123,7 +128,75 @@ class LogViewer:
         self.tree.tag_configure('SECURITY', foreground='orange')
         self.tree.tag_configure('AUDIT', foreground='blue')
 
+    def setup_summary_frame(self):
+        """Adiciona frame com resumo estatístico"""
+        summary_frame = tb.LabelFrame(self.window, text="Resumo", padding=10)
+        summary_frame.pack(fill=tk.X, pady=(0, 10))
+
+        stats = logger_app.get_summary_stats()
+        
+        for i, (key, value) in enumerate(stats.items()):
+            label_text = key.replace('_', ' ').title()
+            if 'rate' in key.lower():
+                value = f"{value:.1f}%"
+            tb.Label(summary_frame, 
+                    text=f"{label_text}: {value}",
+                    font=("Helvetica", 10, "bold")).grid(row=0, column=i, padx=20)
+
+    def setup_search_frame(self):
+        """Adiciona campo de busca por palavra-chave"""
+        search_frame = tb.Frame(self.window, padding=5)
+        search_frame.pack(fill=tk.X)
+
+        self.search_var = tk.StringVar()
+        search_entry = tb.Entry(search_frame, textvariable=self.search_var)
+        search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        def do_search():
+            keyword = self.search_var.get().strip()
+            if keyword:
+                logs = logger_app.search_by_keyword(
+                    keyword,
+                    level=None if self.level_var.get() == "Todos" else LogLevel(self.level_var.get()),
+                    category=None if self.category_var.get() == "Todos" else LogCategory(self.category_var.get())
+                )
+                self.update_treeview(logs)
+            else:
+                self.load_logs()  # Recarrega todos os logs
+
+        search_btn = tb.Button(
+            search_frame,
+            text="Buscar",
+            bootstyle=INFO,
+            command=do_search
+        )
+        search_btn.pack(side=tk.LEFT, padx=5)
+
+        clear_btn = tb.Button(
+            search_frame,
+            text="Limpar",
+            bootstyle=SECONDARY,
+            command=lambda: [self.search_var.set(''), self.load_logs()]
+        )
+        clear_btn.pack(side=tk.LEFT)
+
+    def update_treeview(self, logs):
+        """Atualiza a treeview com os logs fornecidos"""
+        self.tree.delete(*self.tree.get_children())
+        for log in logs:
+            values = (
+                log['Timestamp'],
+                log['Level'],
+                log['Category'],
+                log['User'],
+                log['Action'],
+                log['Details'],
+                log['Status']
+            )
+            self.tree.insert('', 'end', values=values, tags=(log['Level'],))
+
     def get_date_range(self):
+        """Retorna o intervalo de datas baseado no período selecionado"""
         period = self.period_var.get()
         end_date = datetime.now()
         
@@ -133,11 +206,160 @@ class LogViewer:
             start_date = end_date - timedelta(days=7)
         elif period == "Últimos 30 dias":
             start_date = end_date - timedelta(days=30)
-        else:  # Personalizado
-            # Aqui você pode implementar um diálogo para seleção de datas
-            return None, None
+        elif period == "Personalizado":
+            if not hasattr(self, 'custom_start_date'):
+                self.show_date_picker()
+                return None, None
+            
+            try:
+                start_date = datetime.strptime(self.custom_start_date, '%d/%m/%Y')
+                end_date = datetime.strptime(self.custom_end_date, '%d/%m/%Y')
+                return self.custom_start_date, self.custom_end_date
+            except (AttributeError, ValueError):
+                self.show_date_picker()
+                return None, None
             
         return start_date.strftime('%d/%m/%Y'), end_date.strftime('%d/%m/%Y')
+
+    def show_date_picker(self):
+        """Mostra diálogo para seleção de período personalizado"""
+        date_window = tb.Toplevel(self.window)
+        date_window.title("Selecionar Período")
+        date_window.attributes('-topmost', True)
+        
+        # Centraliza a janela
+        w, h = 400, 250
+        ws = date_window.winfo_screenwidth()
+        hs = date_window.winfo_screenheight()
+        x = (ws - w) // 2
+        y = (hs - h) // 2
+        date_window.geometry(f"{w}x{h}+{x}+{y}")
+        
+        # Impede redimensionamento
+        date_window.resizable(False, False)
+        
+        # Frame principal
+        main_frame = tb.Frame(date_window, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Frame para data inicial
+        start_frame = tb.LabelFrame(main_frame, text="Data Inicial (DD/MM/AAAA)", padding=10)
+        start_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Entradas separadas para dia, mês e ano - Data Inicial
+        start_day = tb.Entry(start_frame, width=3)
+        start_day.pack(side=tk.LEFT, padx=2)
+        tb.Label(start_frame, text="/").pack(side=tk.LEFT)
+        
+        start_month = tb.Entry(start_frame, width=3)
+        start_month.pack(side=tk.LEFT, padx=2)
+        tb.Label(start_frame, text="/").pack(side=tk.LEFT)
+        
+        start_year = tb.Entry(start_frame, width=5)
+        start_year.pack(side=tk.LEFT, padx=2)
+        
+        # Frame para data final
+        end_frame = tb.LabelFrame(main_frame, text="Data Final (DD/MM/AAAA)", padding=10)
+        end_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        # Entradas separadas para dia, mês e ano - Data Final
+        end_day = tb.Entry(end_frame, width=3)
+        end_day.pack(side=tk.LEFT, padx=2)
+        tb.Label(end_frame, text="/").pack(side=tk.LEFT)
+        
+        end_month = tb.Entry(end_frame, width=3)
+        end_month.pack(side=tk.LEFT, padx=2)
+        tb.Label(end_frame, text="/").pack(side=tk.LEFT)
+        
+        end_year = tb.Entry(end_frame, width=5)
+        end_year.pack(side=tk.LEFT, padx=2)
+
+        def validate_date(day, month, year):
+            try:
+                if not (1 <= int(day) <= 31 and 1 <= int(month) <= 12 and 1000 <= int(year) <= 9999):
+                    return False
+                datetime(int(year), int(month), int(day))
+                return True
+            except ValueError:
+                return False
+
+        def validate_and_close():
+            try:
+                # Validar data inicial
+                if not validate_date(start_day.get(), start_month.get(), start_year.get()):
+                    messagebox.showerror("Erro", "Data inicial inválida!")
+                    return
+                
+                # Validar data final
+                if not validate_date(end_day.get(), end_month.get(), end_year.get()):
+                    messagebox.showerror("Erro", "Data final inválida!")
+                    return
+                
+                # Criar objetos datetime para comparação
+                start = datetime(
+                    int(start_year.get()),
+                    int(start_month.get()),
+                    int(start_day.get())
+                )
+                end = datetime(
+                    int(end_year.get()),
+                    int(end_month.get()),
+                    int(end_day.get())
+                )
+                
+                if start > end:
+                    messagebox.showerror("Erro", "Data inicial não pode ser maior que a data final!")
+                    return
+                    
+                if end > datetime.now():
+                    messagebox.showerror("Erro", "Data final não pode ser maior que hoje!")
+                    return
+                
+                self.custom_start_date = start.strftime('%d/%m/%Y')
+                self.custom_end_date = end.strftime('%d/%m/%Y')
+                date_window.destroy()
+                self.load_logs()  # Recarrega os logs com o novo período
+                
+            except ValueError as e:
+                messagebox.showerror("Erro", "Formato de data inválido. Use DD/MM/AAAA")
+
+        # Frame para botões
+        btn_frame = tb.Frame(main_frame)
+        btn_frame.pack(fill=tk.X, pady=10)
+        
+        # Adiciona os botões
+        tb.Button(
+            btn_frame,
+            text="Confirmar",
+            bootstyle=SUCCESS,
+            command=validate_and_close
+        ).pack(side=tk.LEFT, padx=5, expand=True)
+        
+        tb.Button(
+            btn_frame,
+            text="Cancelar",
+            bootstyle=DANGER,
+            command=date_window.destroy
+        ).pack(side=tk.LEFT, padx=5, expand=True)
+
+        # Preenche com a data atual
+        today = datetime.now()
+        end_day.insert(0, today.strftime('%d'))
+        end_month.insert(0, today.strftime('%m'))
+        end_year.insert(0, today.strftime('%Y'))
+        
+        # Data inicial como 30 dias atrás
+        start_date = today - timedelta(days=30)
+        start_day.insert(0, start_date.strftime('%d'))
+        start_month.insert(0, start_date.strftime('%m'))
+        start_year.insert(0, start_date.strftime('%Y'))
+
+    def on_period_change(self):
+        """Callback quando o período é alterado"""
+        if self.period_var.get() == "Personalizado":
+            self.show_date_picker()
+        else:
+            self.load_logs()
 
     def load_logs(self):
         # Limpar árvore atual

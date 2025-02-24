@@ -266,3 +266,39 @@ def export_logs(filepath: str, format: str = 'json', **filters):
     except Exception as e:
         logging.error(f"Erro ao exportar logs: {str(e)}")
         return False
+
+# Adicionar novos métodos úteis
+def get_summary_stats():
+    """Retorna estatísticas resumidas dos logs"""
+    try:
+        all_logs = get_logs()
+        total = len(all_logs)
+        errors = len([log for log in all_logs if log['Level'] == 'ERROR'])
+        security = len([log for log in all_logs if log['Level'] == 'SECURITY'])
+        
+        return {
+            'total_logs': total,
+            'error_count': errors,
+            'security_events': security,
+            'error_rate': (errors/total * 100) if total > 0 else 0
+        }
+    except Exception as e:
+        logging.error(f"Erro ao gerar estatísticas: {str(e)}")
+        return {}
+
+def get_recent_errors(limit=10):
+    """Retorna os erros mais recentes"""
+    return get_logs(level=LogLevel.ERROR, limit=limit)
+
+def search_by_keyword(keyword, **filters):
+    """Busca logs contendo uma palavra-chave"""
+    try:
+        logs = get_logs(**filters)
+        return [
+            log for log in logs 
+            if keyword.lower() in str(log.get('Details', '')).lower() or
+               keyword.lower() in str(log.get('Action', '')).lower()
+        ]
+    except Exception as e:
+        logging.error(f"Erro na busca por palavra-chave: {str(e)}")
+        return []
