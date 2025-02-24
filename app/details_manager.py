@@ -1,5 +1,6 @@
 # details_manager.py
 
+import threading
 import tkinter as tk
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -542,16 +543,15 @@ class DetailsManager:
         close_button.pack(pady=10)
 
     def send_emails_and_update_status(self, emails_to_send, row_data, new_status=None, new_value=None):
-        """Função unificada para enviar emails e atualizar status"""
+        """Função unificada para enviar emails e atualizar status com interface padronizada"""
         
         progress_window = tb.Toplevel(self.app.root)
         progress_window.title("Enviando Emails")
-        w, h = 500, 400  # Tamanho fixo
+        w, h = 500, 400
         self._center_window(progress_window, w, h)
-        # Impedir redimensionamento e maximização
         progress_window.resizable(False, False)
-        # Remover botões de maximizar/minimizar
         progress_window.attributes('-toolwindow', True)
+        progress_window.attributes('-topmost', True)  # Mantém janela sempre visível
         progress_window.transient(self.app.root)
         progress_window.grab_set()
         progress_window.focus_set()
@@ -559,21 +559,33 @@ class DetailsManager:
         main_frame = tb.Frame(progress_window, padding=20)
         main_frame.pack(fill=BOTH, expand=True)
 
+        # Frame com título e lista de emails
         list_frame = tb.LabelFrame(main_frame, text="Emails a serem enviados", padding=10)
         list_frame.pack(fill=BOTH, expand=True)
 
+        # Treeview para mostrar status dos envios
         columns = ("Destinatário", "Tipo", "Status")
         tree = tb.Treeview(list_frame, columns=columns, show="headings", height=10)
         for col in columns:
             tree.heading(col, text=col)
             tree.column(col, width=150)
-        tree.pack(fill=BOTH, expand=True)
+        
+        # Scrollbar para a Treeview
+        scrollbar = tb.Scrollbar(list_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        
+        tree.pack(side=LEFT, fill=BOTH, expand=True)
+        scrollbar.pack(side=RIGHT, fill=Y)
 
+        # Adiciona emails na lista
         for i, email in enumerate(emails_to_send):
             tree.insert("", END, iid=str(i), values=(
-                email["recipient"], email["type"], "Pendente"
+                email["recipient"],
+                email["type"],
+                "Pendente"
             ))
 
+        # Barra de progresso estilizada
         progress = tb.Progressbar(
             main_frame, 
             bootstyle="success-striped",
@@ -591,7 +603,6 @@ class DetailsManager:
 
                 for i, email in enumerate(emails_to_send):
                     try:
-                        # Verifica se a janela ainda existe
                         if not progress_window.winfo_exists():
                             return
                             
@@ -600,23 +611,37 @@ class DetailsManager:
                             email["recipient"],
                             email["subject"],
                             email["body"],
-                            email.get("attachment")  # Passa o anexo se existir
+                            email.get("attachment")
                         )
                         tree.set(str(i), "Status", "✓ Enviado")
                         success_count += 1
+                        
+                        # Log de sucesso
+                        logger_app.append_log(
+                            logger_app.LogLevel.INFO,
+                            logger_app.LogCategory.EMAIL,
+                            "SYSTEM",
+                            "SEND_EMAIL",
+                            f"Email enviado com sucesso para {email['recipient']}"
+                        )
                     except Exception as e:
-                        logger_app.log_error(f"Erro ao enviar email: {str(e)}")
                         tree.set(str(i), "Status", "✗ Erro")
                         all_success = False
+                        # Log de erro
+                        logger_app.append_log(
+                            logger_app.LogLevel.ERROR,
+                            logger_app.LogCategory.EMAIL,
+                            "SYSTEM",
+                            "SEND_EMAIL_ERROR",
+                            f"Erro ao enviar email para {email['recipient']}: {str(e)}"
+                        )
 
                     progress["value"] = i + 1
                     progress_window.update()
 
-                # Verifica novamente se a janela existe antes de atualizar o status
                 if not progress_window.winfo_exists():
                     return
                     
-                # Só atualiza o status se todos os emails foram enviados com sucesso
                 if all_success and new_status:
                     ts_str = row_data['Carimbo de data/hora']
                     if new_value:
@@ -632,7 +657,6 @@ class DetailsManager:
 
                 close_btn.config(state="normal")
                 
-                # Se todos os emails foram enviados com sucesso, fecha as janelas após 2 segundos
                 if all_success:
                     progress_window.after(2000, lambda: [
                         progress_window.destroy() if progress_window.winfo_exists() else None,
@@ -641,7 +665,6 @@ class DetailsManager:
                     ])
 
             except tk.TclError:
-                # Ignora erros se a janela já foi fechada
                 pass
 
         close_btn = tb.Button(
@@ -652,9 +675,8 @@ class DetailsManager:
         )
         close_btn.pack(pady=10)
 
-        import threading
         thread = threading.Thread(target=process_emails)
-        thread.daemon = True  # Thread será encerrada quando o programa principal fechar
+        thread.daemon = True
         thread.start()
 
     def unified_email_window(self, row_data, status_update, notification_data=None, value=None):
