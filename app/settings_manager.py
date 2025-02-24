@@ -9,6 +9,7 @@ import os
 import hashlib
 from datetime import datetime
 import logger_app
+import re
 
 BTN_WIDTH = 35
 
@@ -376,130 +377,193 @@ class SettingsManager:
 
         def add_user():
             def confirm_add():
-                # Validação dos campos
-                if not all([login_var.get(), name_var.get(), pass_var.get(), email_var.get()]):
-                    messagebox.showerror("Erro", "Todos os campos são obrigatórios.")
-                    return
-                
-                if pass_var.get() != confirm_pass_var.get():
-                    messagebox.showerror("Erro", "As senhas não coincidem.")
-                    return
-                    
-                if email_var.get() != confirm_email_var.get():
-                    messagebox.showerror("Erro", "Os emails não coincidem.")
-                    return
-                
-                if login_var.get() in db_users:
-                    messagebox.showerror("Erro", "Login já existe.")
-                    return
-
                 try:
+                    # Validação dos campos
+                    if not all([login_var.get(), name_var.get(), pass_var.get(), email_var.get()]):
+                        messagebox.showerror("Erro", "Todos os campos são obrigatórios.")
+                        return
+                    
+                    # Validação de email
+                    email = email_var.get().strip()
+                    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+                        messagebox.showerror("Erro", "Email inválido!")
+                        return
+                    
+                    if email != confirm_email_var.get().strip():
+                        messagebox.showerror("Erro", "Os emails não coincidem!")
+                        return
+
+                    # Validação de senha
+                    if pass_var.get() != confirm_pass_var.get():
+                        messagebox.showerror("Erro", "As senhas não coincidem!")
+                        return
+
+                    login = login_var.get().strip()
+                    if login in db_users:
+                        messagebox.showerror("Erro", "Login já existe!")
+                        return
+
                     # Prepara dados do usuário
                     user_data = {
-                        "name": name_var.get(),
-                        "login": login_var.get(),
-                        "hashed_password": hash_password(pass_var.get() + login_var.get()),
+                        "name": name_var.get().strip(),
+                        "login": login,
+                        "hashed_password": hash_password(pass_var.get() + login),
                         "role": role_var.get(),
-                        "email": email_var.get(),
+                        "email": email,
                         "role_name": self.ROLE_NAMES[role_var.get()]
                     }
 
-                    # Email para o novo usuário
-                    user_email_body = f"""
-                    Olá {user_data['name']},
+                    # Salva primeiro no banco de dados
+                    db_users[login] = user_data
+                    save_users_db(db_users)
+                    logger_app.append_log(
+                        logger_app.LogLevel.INFO,
+                        logger_app.LogCategory.USER_ACTION,
+                        "SYSTEM",
+                        "CREATE_USER",
+                        f"Novo usuário criado: {login}"
+                    )
 
-                    Sua conta foi criada no Sistema Financeiro IG com as seguintes informações:
+                    # Prepara emails
+                    user_email = {
+                        "recipient": email,
+                        "subject": "Bem-vindo ao Sistema Financeiro IG",
+                        "body": f"""
+Olá {user_data['name']},
 
-                    Login: {user_data['login']}
-                    Cargo: {user_data['role']} - {user_data['role_name']}
+Sua conta foi criada no Sistema Financeiro IG com as seguintes informações:
 
-                    Você já pode acessar o sistema usando seu login e a senha cadastrada.
+Login: {user_data['login']}
+Cargo: {user_data['role']} - {user_data['role_name']}
 
-                    Atenciosamente,
-                    Equipe do Sistema Financeiro IG
-                    """
+Você já pode acessar o sistema usando seu login e a senha cadastrada.
 
-                    # Email para administradores
-                    admin_email_body = f"""
-                    Um novo usuário foi cadastrado no sistema:
+Atenciosamente,
+Equipe do Sistema Financeiro IG""",
+                        "type": "Novo Usuário"
+                    }
 
-                    Nome: {user_data['name']}
-                    Login: {user_data['login']}
-                    Email: {user_data['email']}
-                    Cargo: {user_data['role']} - {user_data['role_name']}
-                    Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
-
-                    Este é um email automático de notificação.
-                    """
-
-                    # Lista de emails a serem enviados
-                    emails_to_send = [
-                        {
-                            "recipient": user_data['email'],
-                            "subject": "Bem-vindo ao Sistema Financeiro IG",
-                            "body": user_email_body,
-                            "type": "Novo Usuário"
-                        }
-                    ]
-
-                    # Adiciona emails dos administradores
+                    # Obtém emails dos administradores da planilha
                     admin_emails = self.app.sheets_handler.get_notification_emails().get('ADMIN', [])
+                    if not admin_emails:
+                        logger_app.append_log(
+                            logger_app.LogLevel.INFO,
+                            logger_app.LogCategory.SYSTEM,
+                            "SYSTEM",
+                            "WARNING",
+                            "Nenhum email de administrador configurado na aba Email, coluna ADMIN"
+                        )
+                        messagebox.showwarning(
+                            "Atenção", 
+                            "Não foi possível notificar administradores (configure os emails na aba Email, coluna ADMIN)"
+                        )
+
+                    admin_notifications = []
                     for admin_email in admin_emails:
-                        emails_to_send.append({
-                            "recipient": admin_email,
+                        admin_notifications.append({
+                            "recipient": admin_email.strip(),
                             "subject": "Novo Usuário Cadastrado - Sistema Financeiro IG",
-                            "body": admin_email_body,
+                            "body": f"""
+Um novo usuário foi cadastrado no sistema:
+
+Nome: {user_data['name']}
+Login: {user_data['login']}
+Email: {user_data['email']}
+Cargo: {user_data['role']} - {user_data['role_name']}
+Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+
+Este é um email automático de notificação.""",
                             "type": "Notificação Admin"
                         })
 
-                    # Salva o usuário no banco de dados
-                    db_users[user_data['login']] = user_data
-                    save_users_db(db_users)
-                    refresh_users()
+                    # Lista completa de emails para enviar
+                    emails_to_send = [user_email] + admin_notifications
 
-                    # Envia os emails
+                    # Cria janela de progresso
                     progress_window = tb.Toplevel(addw)
                     progress_window.title("Enviando Emails")
                     w, h = 400, 300
                     self._center_window(progress_window, w, h)
                     self._prevent_resize_maximize(progress_window)
 
-                    tk.Label(progress_window, text="Enviando emails de notificação...").pack(pady=10)
+                    # Configura elementos visuais
+                    tk.Label(progress_window, text="Enviando emails...").pack(pady=10)
+                    
+                    # Cria Treeview para mostrar status dos envios
+                    tree = tb.Treeview(progress_window, columns=("Destinatário", "Tipo", "Status"), show="headings", height=5)
+                    for col in ("Destinatário", "Tipo", "Status"):
+                        tree.heading(col, text=col)
+                        tree.column(col, width=120)
+                    tree.pack(fill=BOTH, expand=True, padx=10)
 
-                    progress = tb.Progressbar(
-                        progress_window,
-                        maximum=len(emails_to_send),
-                        bootstyle="success-striped"
-                    )
-                    progress.pack(fill=tk.X, padx=20, pady=10)
+                    # Adiciona emails na lista
+                    for i, email in enumerate(emails_to_send):
+                        tree.insert("", END, iid=str(i), values=(email["recipient"], email["type"], "Pendente"))
 
-                    status_label = tk.Label(progress_window, text="Iniciando...")
+                    # Barra de progresso
+                    progress = tb.Progressbar(progress_window, maximum=len(emails_to_send), mode='determinate')
+                    progress.pack(fill=X, padx=20, pady=10)
+
+                    status_label = tk.Label(progress_window, text="Iniciando envio...")
                     status_label.pack(pady=5)
 
+                    # Função para atualizar interface durante envio
+                    def update_progress(success, index, recipient):
+                        if not progress_window.winfo_exists():
+                            return
+                        tree.set(str(index), "Status", "✓ Enviado" if success else "✗ Erro")
+                        progress['value'] = index + 1
+                        status_label.config(text=f"Enviando para {recipient}...")
+                        progress_window.update()
+
+                    # Envia emails
                     success_count = 0
                     for i, email in enumerate(emails_to_send):
                         try:
                             status_label.config(text=f"Enviando para {email['recipient']}...")
                             self.app.email_sender.send_email(
-                                email["recipient"],
-                                email["subject"],
-                                email["body"]
+                                recipient=email["recipient"],
+                                subject=email["subject"],
+                                body=email["body"]
                             )
                             success_count += 1
+                            update_progress(True, i, email["recipient"])
+                            logger_app.append_log(
+                                logger_app.LogLevel.INFO,
+                                logger_app.LogCategory.EMAIL,
+                                "SYSTEM",
+                                "SEND_EMAIL",
+                                f"Email enviado com sucesso para {email['recipient']}"
+                            )
                         except Exception as e:
-                            logger_app.log_error(f"Erro ao enviar email: {str(e)}")
-                        
-                        progress['value'] = i + 1
-                        progress_window.update()
+                            update_progress(False, i, email["recipient"])
+                            logger_app.append_log(
+                                logger_app.LogLevel.ERROR,
+                                logger_app.LogCategory.EMAIL,
+                                "SYSTEM",
+                                "SEND_EMAIL_ERROR",
+                                f"Erro ao enviar email para {email['recipient']}: {str(e)}"
+                            )
 
-                    status_label.config(text=f"Concluído! {success_count} emails enviados.")
+                    # Atualiza status final
+                    status_text = f"Concluído! {success_count} de {len(emails_to_send)} emails enviados."
+                    status_label.config(text=status_text)
                     
-                    # Fecha as janelas após 2 segundos
-                    progress_window.after(2000, progress_window.destroy)
-                    addw.after(2200, addw.destroy)
+                    # Fecha janelas após 3 segundos
+                    progress_window.after(3000, lambda: [
+                        progress_window.destroy() if progress_window.winfo_exists() else None,
+                        addw.destroy() if addw.winfo_exists() else None,
+                        refresh_users()
+                    ])
 
                 except Exception as e:
-                    logger_app.log_error(f"Erro ao cadastrar usuário: {str(e)}")
+                    logger_app.append_log(
+                        logger_app.LogLevel.ERROR,
+                        logger_app.LogCategory.SYSTEM,
+                        "SYSTEM",
+                        "USER_CREATE_ERROR",
+                        f"Erro no cadastro de usuário: {str(e)}"
+                    )
                     messagebox.showerror("Erro", f"Erro ao cadastrar usuário: {str(e)}")
 
             addw = tb.Toplevel(um_window)
@@ -665,6 +729,7 @@ class SettingsManager:
             "Solicitação Aceita": "Solicitação aceita",
             "ProntoPagamento": "Pronto para Pagamento",
             "Cancelado": "Cancelados",
+            "ADMIN": "Administradores"  # Nova aba para emails admin
         }
 
         notification_emails = self.app.sheets_handler.get_notification_emails()

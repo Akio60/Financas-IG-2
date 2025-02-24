@@ -129,6 +129,11 @@ class GoogleSheetsHandler:
     def get_notification_emails(self):
         """Retorna os emails de notificação da aba Email"""
         try:
+            # Verifica se tem cache válido
+            if (self._notification_emails_cache and self._last_cache_update and 
+                (datetime.now() - self._last_cache_update).total_seconds() < self._cache_timeout):
+                return self._notification_emails_cache
+
             data = self.email_sheet.get_all_records()
             if not data:
                 logger_app.log_warning("Planilha de emails vazia")
@@ -138,19 +143,25 @@ class GoogleSheetsHandler:
             row_data = data[0] if data else {}
             emails_dict = {}
             
-            # Status possíveis para notificações
+            # Status possíveis para notificações (incluindo ADMIN)
             status_list = [
                 "AguardandoAprovacao", "Pendencias", "ProntoPagamento", 
-                "Cancelado", "Solicitação Aceita", "AguardandoDocumentacao", "Pago"
+                "Cancelado", "Solicitação Aceita", "AguardandoDocumentacao", 
+                "Pago", "ADMIN"  # Adicionado ADMIN à lista
             ]
             
             for status in status_list:
                 if status in row_data:
                     email_str = str(row_data[status])
+                    # Limpa e valida os emails
                     emails = [e.strip() for e in email_str.split(",") if e.strip()]
                     if emails:
                         emails_dict[status] = emails
-                
+            
+            # Atualiza o cache
+            self._notification_emails_cache = emails_dict
+            self._last_cache_update = datetime.now()
+                    
             return emails_dict
 
         except Exception as e:
@@ -161,8 +172,20 @@ class GoogleSheetsHandler:
     def update_notification_emails(self, column, emails):
         """Atualiza os emails de notificação para uma coluna específica"""
         try:
-            # Encontra índice da coluna 
-            header = self.email_sheet.row_values(1)
+            # Garante que a aba Email existe e está acessível
+            try:
+                header = self.email_sheet.row_values(1)
+            except Exception as e:
+                logger_app.log_error(f"Erro ao acessar aba Email: {str(e)}")
+                return False
+
+            # Se a coluna ADMIN não existir, cria ela
+            if column == 'ADMIN' and column not in header:
+                next_col = len(header) + 1
+                self.email_sheet.update_cell(1, next_col, 'ADMIN')
+                header.append('ADMIN')
+
+            # Encontra índice da coluna
             if column not in header:
                 logger_app.log_error(f"Coluna {column} não encontrada na aba Email")
                 return False
@@ -172,8 +195,18 @@ class GoogleSheetsHandler:
             # Une os emails com vírgula
             email_str = ", ".join(emails)
             
-            # Atualiza na segunda linha (primeira linha após header)
-            self.email_sheet.update_cell(2, col_idx, email_str)
+            # Verifica se já existe algum dado na segunda linha
+            try:
+                row_data = self.email_sheet.row_values(2)
+                if len(row_data) < col_idx:
+                    # Se a linha não tiver células suficientes, atualiza a célula específica
+                    self.email_sheet.update_cell(2, col_idx, email_str)
+                else:
+                    # Se já existir dados, atualiza a célula
+                    self.email_sheet.update_cell(2, col_idx, email_str)
+            except:
+                # Se a segunda linha não existir, insere ela
+                self.email_sheet.update_cell(2, col_idx, email_str)
             
             # Invalida o cache
             self._notification_emails_cache = None
