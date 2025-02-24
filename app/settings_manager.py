@@ -80,6 +80,7 @@ class SettingsManager:
         w, h = WINDOW_SIZES['settings']
         self._center_window(self.settings_window, w, h)
         self._prevent_resize_maximize(self.settings_window)
+        self.settings_window.attributes('-topmost', True)  # Adiciona sempre no topo
 
         main_frame = tb.Frame(self.settings_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
@@ -209,6 +210,7 @@ class SettingsManager:
         w, h = WINDOW_SIZES['column_selector']
         self._center_window(sel_window, w, h)
         self._prevent_resize_maximize(sel_window)
+        sel_window.attributes('-topmost', True)  # Adiciona sempre no topo
 
         top_label = tb.Label(sel_window, text=f"Colunas para: {view_name}", font=("Helvetica", 11, "bold"))
         top_label.pack(pady=5)
@@ -328,6 +330,7 @@ class SettingsManager:
         w, h = WINDOW_SIZES['email_template']
         self._center_window(template_window, w, h)
         self._prevent_resize_maximize(template_window)
+        template_window.attributes('-topmost', True)  # Adiciona sempre no topo
 
         label = tb.Label(template_window, text=f"Modelo de E-mail: {motivo}", font=("Helvetica", 12))
         label.pack(pady=10)
@@ -355,6 +358,7 @@ class SettingsManager:
         w, h = WINDOW_SIZES['user_manager']
         self._center_window(um_window, w, h)
         self._prevent_resize_maximize(um_window)
+        um_window.attributes('-topmost', True)  # Adiciona sempre no topo
 
         db_users = load_users_db()
 
@@ -485,6 +489,7 @@ Este é um email automático de notificação.""",
                     w, h = 400, 300
                     self._center_window(progress_window, w, h)
                     self._prevent_resize_maximize(progress_window)
+                    progress_window.attributes('-topmost', True)  # Adiciona sempre no topo
 
                     # Configura elementos visuais
                     tk.Label(progress_window, text="Enviando emails...").pack(pady=10)
@@ -571,6 +576,7 @@ Este é um email automático de notificação.""",
             w, h = WINDOW_SIZES['add_user']
             self._center_window(addw, w, h)
             self._prevent_resize_maximize(addw)
+            addw.attributes('-topmost', True)  # Adiciona sempre no topo
 
             # Container principal que ocupará toda a janela
             container = tb.Frame(addw)
@@ -701,11 +707,40 @@ Este é um email automático de notificação.""",
             line = listbox.get(idx)
             user_name = line.split("|")[0].strip()
             if user_name in db_users:
-                confirm = messagebox.askyesno("Confirmar", f"Remover usuário '{user_name}'?")
-                if confirm:
+                # Cria janela de confirmação customizada
+                confirm_window = tb.Toplevel(um_window)
+                confirm_window.title("Confirmar Remoção")
+                w, h = 300, 150
+                self._center_window(confirm_window, w, h)
+                self._prevent_resize_maximize(confirm_window)
+                confirm_window.attributes('-topmost', True)  # Adiciona sempre no topo
+                
+                # Configuração da janela de confirmação
+                msg = f"Tem certeza que deseja remover o usuário '{user_name}'?"
+                tb.Label(confirm_window, text=msg, wraplength=250).pack(pady=20)
+                
+                btn_frame = tb.Frame(confirm_window)
+                btn_frame.pack(pady=10)
+                
+                def confirm():
                     db_users.pop(user_name)
                     save_users_db(db_users)
                     refresh_users()
+                    confirm_window.destroy()
+                
+                tb.Button(
+                    btn_frame,
+                    text="Sim",
+                    bootstyle=DANGER,
+                    command=confirm
+                ).pack(side=LEFT, padx=10)
+                
+                tb.Button(
+                    btn_frame,
+                    text="Não",
+                    bootstyle=SECONDARY,
+                    command=confirm_window.destroy
+                ).pack(side=LEFT, padx=10)
 
         add_btn = tb.Button(btn_frame, text="Adicionar Usuário", bootstyle=SUCCESS, command=add_user)
         add_btn.pack(side=LEFT, padx=5)
@@ -719,6 +754,7 @@ Este é um email automático de notificação.""",
         w, h = WINDOW_SIZES['notification']
         self._center_window(notif_window, w, h)
         self._prevent_resize_maximize(notif_window)
+        notif_window.attributes('-topmost', True)  # Adiciona sempre no topo
 
         notebook = tb.Notebook(notif_window)
         notebook.pack(fill=BOTH, expand=True, padx=10, pady=10)
