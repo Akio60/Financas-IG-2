@@ -48,6 +48,34 @@ class DetailsManager:
         self.edit_mode = False
         self.original_text = ""
         self.attachment_path = None  # Nova variável para armazenar caminho do anexo
+        self.driver = None  # Para caso futuro de integração com Selenium
+
+    def open_lattes_search(self, nome):
+        """Abre a busca do Lattes com o nome do solicitante"""
+        import webbrowser
+        from urllib.parse import quote
+        
+        base_url = "https://buscatextual.cnpq.br/buscatextual/busca.do?metodo=apresentar"
+        webbrowser.open(base_url)
+        
+        try:
+            # Tenta importar e usar pyautogui para automação
+            import pyautogui
+            import time
+            
+            # Espera a página carregar
+            time.sleep(2)
+            
+            # Digita o nome do solicitante
+            nome_pesquisa = nome.upper()  # Lattes aceita melhor em maiúsculas
+            pyautogui.write(nome_pesquisa)
+            
+            # Pressiona Enter
+            pyautogui.press('enter')
+            
+        except ImportError:
+            # Se pyautogui não estiver disponível, só abre o site
+            pass
 
     def show_details_in_place(self, row_data):
         if self.app.user_role == "A1":
@@ -108,117 +136,207 @@ class DetailsManager:
             tab_frame = tb.Frame(notebook)
             notebook.add(tab_frame, text=section_name)
 
-            # Configuração consistente do grid
-            tab_frame.columnconfigure(0, weight=1, minsize=300)  # Coluna dos labels
-            tab_frame.columnconfigure(1, weight=3, minsize=400)  # Coluna dos valores
+            if section_name == "Informações Acadêmicas":
+                # Frame principal para esta aba
+                main_tab_frame = tb.Frame(tab_frame)
+                main_tab_frame.pack(fill=BOTH, expand=True, padx=10, pady=5)
 
-            row_idx = 0
-            for col in fields:
-                if col in row_data:
-                    if col == 'Observações':
-                        # Label de título acima do frame
-                        display_label = self.FORM_FIELD_MAPPING.get(col, col)
-                        title_label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
-                        title_label.grid(row=row_idx, column=0, columnspan=2, sticky='w', padx=20, pady=(10,0))  # Aumenta o pady superior
-                        row_idx += 1
+                # Frame para os campos de informação (agora vem primeiro)
+                fields_frame = tb.Frame(main_tab_frame)
+                fields_frame.pack(fill=BOTH, expand=True)
+                
+                # Configuração do grid para os campos
+                fields_frame.columnconfigure(0, weight=1, minsize=300)
+                fields_frame.columnconfigure(1, weight=3, minsize=400)
 
-                        # Frame para conter a caixa de texto e botões
-                        obs_frame = tb.Frame(tab_frame)
-                        obs_frame.grid(row=row_idx, column=0, columnspan=2, sticky='nsew', padx=20, pady=(30,50))  # Aumenta o pady superior
-                        
-                        # Configurar grid do obs_frame
-                        obs_frame.columnconfigure(0, weight=5)  # Coluna da caixa de texto
-                        obs_frame.columnconfigure(1, weight=1)  # Coluna dos botões
-                        
-                        # Caixa de texto para observações com o texto atual
-                        self.obs_text = Text(obs_frame, height=4, state='normal')
-                        self.obs_text.grid(row=0, column=0, sticky='nsew')
-                        
-                        # Inserir o texto das observações da planilha
-                        observation_text = row_data.get('Observações', '')
-                        if observation_text is None:
-                            observation_text = ''
-                        self.obs_text.delete('1.0', 'end')
-                        self.obs_text.insert('1.0', str(observation_text))
-                        self.obs_text.config(state='disabled')
-                        
-                        # Frame para botões
-                        btn_frame = tb.Frame(obs_frame)
-                        btn_frame.grid(row=0, column=1, sticky='nsew', padx=(10, 0))
-                        
-                        # Configurar grid do btn_frame para distribuir os botões igualmente
-                        btn_frame.rowconfigure(0, weight=1)
-                        btn_frame.rowconfigure(1, weight=1)
-                        btn_frame.rowconfigure(2, weight=1)
-                        btn_frame.columnconfigure(0, weight=1)
-                        
-                        # Botão de editar
-                        self.edit_btn = tb.Button(
-                            btn_frame, 
-                            text="Editar", 
-                            bootstyle=PRIMARY,
-                            command=lambda: self.toggle_edit_mode(row_data)
-                        )
-                        self.edit_btn.grid(row=0, column=0, sticky='nsew', pady=2)
-                        
-                        # Botões de confirmar e cancelar (inicialmente desabilitados)
-                        self.confirm_btn = tb.Button(
-                            btn_frame,
-                            text="Confirmar",
-                            bootstyle=SUCCESS,
-                            command=lambda: self.save_observations(row_data),
-                            state='disabled'
-                        )
-                        self.confirm_btn.grid(row=1, column=0, sticky='nsew', pady=2)
-                        
-                        self.cancel_btn = tb.Button(
-                            btn_frame,
-                            text="Cancelar",
-                            bootstyle=DANGER,
-                            command=self.cancel_edit,
-                            state='disabled'
-                        )
-                        self.cancel_btn.grid(row=2, column=0, sticky='nsew', pady=2)
-                        
-                        # Incrementa row_idx para o próximo item
-                        row_idx += 1
-                        continue
-                    else:
+                # Adiciona os campos de informação
+                row_idx = 0
+                for col in fields:
+                    if col in row_data:
                         display_label = self.FORM_FIELD_MAPPING.get(col, col)
                         
-                        # Frame para conter cada par label-valor
-                        field_frame = tb.Frame(tab_frame)
+                        field_frame = tb.Frame(fields_frame)
                         field_frame.grid(row=row_idx, column=0, columnspan=2, sticky='ew', padx=20, pady=5)
                         
-                        # Configuração do grid do field_frame
-                        field_frame.columnconfigure(0, minsize=300, weight=0)  # Largura fixa para labels
-                        field_frame.columnconfigure(1, weight=1)   # Valor expande
+                        field_frame.columnconfigure(0, minsize=300, weight=0)
+                        field_frame.columnconfigure(1, weight=1)
                         
-                        # Label com wrapping
                         label = tb.Label(
                             field_frame, 
                             text=f"{display_label}:", 
                             font=("Helvetica", 12, "bold"),
-                            wraplength=280,  # Permite quebra de texto
-                            justify="left"    # Alinha o texto quebrado à esquerda
+                            wraplength=280,
+                            justify="left"
                         )
                         label.grid(row=0, column=0, sticky='nw', padx=(0,20))
                         
-                        # Valor com wrapping
                         value_text = str(row_data[col])
                         value = tb.Label(
                             field_frame, 
                             text=value_text, 
                             font=("Helvetica", 12),
-                            wraplength=400,  # Permite quebra de texto
-                            justify="left",   # Alinha o texto quebrado à esquerda
+                            wraplength=400,
+                            justify="left"
                         )
                         value.grid(row=0, column=1, sticky='nw')
                         
-                        # Configura o grid para expandir na vertical se necessário
+                        if col == 'Nome completo (sem abreviações):':
+                            lattes_frame = tb.Frame(field_frame)
+                            lattes_frame.grid(row=1, column=1, sticky='w', pady=(5,0))
+                            
+                            lattes_btn = tb.Button(
+                                lattes_frame,
+                                text="Buscar Currículo Lattes",
+                                bootstyle=(INFO, OUTLINE),
+                                command=lambda: self.open_lattes_search(value_text)
+                            )
+                            lattes_btn.pack(side=tk.LEFT,pady=100)
+                            
+                            info_label = tb.Label(
+                                lattes_frame,
+                                text="(Abrirá o site do Lattes e preencherá o nome automaticamente)",
+                                font=("Helvetica", 9),
+                                foreground="gray"
+                            )
+                            info_label.pack(side=tk.LEFT, padx=5)
+
                         field_frame.grid_rowconfigure(0, weight=1)
-                        
-                    row_idx += 1
+                        row_idx += 1
+
+                # Frame para o botão do Lattes no final
+                lattes_frame = tb.Frame(main_tab_frame)
+                lattes_frame.pack(fill=tk.X, pady=(10,0))
+                
+                nome_solicitante = row_data.get('Nome completo (sem abreviações):', '')
+                
+                lattes_btn = tb.Button(
+                    lattes_frame,
+                    text="Buscar Currículo Lattes",
+                    bootstyle=(INFO, OUTLINE),
+                    command=lambda: self.open_lattes_search(nome_solicitante)
+                )
+                lattes_btn.pack(side=tk.LEFT, padx=20,)  # Aumentei o padx para alinhar com os campos
+                
+                info_label = tb.Label(
+                    lattes_frame,
+                    text="(Abrirá o site do Lattes e preencherá o nome automaticamente)",
+                    font=("Helvetica", 9),
+                    foreground="gray"
+                )
+                info_label.pack(side=tk.LEFT, padx=5)
+
+            else:
+                # Configuração padrão para outras abas
+                tab_frame.columnconfigure(0, weight=1, minsize=300)
+                tab_frame.columnconfigure(1, weight=3, minsize=400)
+
+                row_idx = 0
+                for col in fields:
+                    if col in row_data:
+                        if col == 'Observações':
+                            # Label de título acima do frame
+                            display_label = self.FORM_FIELD_MAPPING.get(col, col)
+                            title_label = tb.Label(tab_frame, text=f"{display_label}:", font=("Helvetica", 12, "bold"))
+                            title_label.grid(row=row_idx, column=0, columnspan=2, sticky='w', padx=20, pady=(10,0))  # Aumenta o pady superior
+                            row_idx += 1
+
+                            # Frame para conter a caixa de texto e botões
+                            obs_frame = tb.Frame(tab_frame)
+                            obs_frame.grid(row=row_idx, column=0, columnspan=2, sticky='nsew', padx=20, pady=(30,50))  # Aumenta o pady superior
+                            
+                            # Configurar grid do obs_frame
+                            obs_frame.columnconfigure(0, weight=5)  # Coluna da caixa de texto
+                            obs_frame.columnconfigure(1, weight=1)  # Coluna dos botões
+                            
+                            # Caixa de texto para observações com o texto atual
+                            self.obs_text = Text(obs_frame, height=4, state='normal')
+                            self.obs_text.grid(row=0, column=0, sticky='nsew')
+                            
+                            # Inserir o texto das observações da planilha
+                            observation_text = row_data.get('Observações', '')
+                            if observation_text is None:
+                                observation_text = ''
+                            self.obs_text.delete('1.0', 'end')
+                            self.obs_text.insert('1.0', str(observation_text))
+                            self.obs_text.config(state='disabled')
+                            
+                            # Frame para botões
+                            btn_frame = tb.Frame(obs_frame)
+                            btn_frame.grid(row=0, column=1, sticky='nsew', padx=(10, 0))
+                            
+                            # Configurar grid do btn_frame para distribuir os botões igualmente
+                            btn_frame.rowconfigure(0, weight=1)
+                            btn_frame.rowconfigure(1, weight=1)
+                            btn_frame.rowconfigure(2, weight=1)
+                            btn_frame.columnconfigure(0, weight=1)
+                            
+                            # Botão de editar
+                            self.edit_btn = tb.Button(
+                                btn_frame, 
+                                text="Editar", 
+                                bootstyle=PRIMARY,
+                                command=lambda: self.toggle_edit_mode(row_data)
+                            )
+                            self.edit_btn.grid(row=0, column=0, sticky='nsew', pady=2)
+                            
+                            # Botões de confirmar e cancelar (inicialmente desabilitados)
+                            self.confirm_btn = tb.Button(
+                                btn_frame,
+                                text="Confirmar",
+                                bootstyle=SUCCESS,
+                                command=lambda: self.save_observations(row_data),
+                                state='disabled'
+                            )
+                            self.confirm_btn.grid(row=1, column=0, sticky='nsew', pady=2)
+                            
+                            self.cancel_btn = tb.Button(
+                                btn_frame,
+                                text="Cancelar",
+                                bootstyle=DANGER,
+                                command=self.cancel_edit,
+                                state='disabled'
+                            )
+                            self.cancel_btn.grid(row=2, column=0, sticky='nsew', pady=2)
+                            
+                            # Incrementa row_idx para o próximo item
+                            row_idx += 1
+                            continue
+                        else:
+                            display_label = self.FORM_FIELD_MAPPING.get(col, col)
+                            
+                            # Frame para conter cada par label-valor
+                            field_frame = tb.Frame(tab_frame)
+                            field_frame.grid(row=row_idx, column=0, columnspan=2, sticky='ew', padx=20, pady=5)
+                            
+                            # Configuração do grid do field_frame
+                            field_frame.columnconfigure(0, minsize=300, weight=0)  # Largura fixa para labels
+                            field_frame.columnconfigure(1, weight=1)   # Valor expande
+                            
+                            # Label com wrapping
+                            label = tb.Label(
+                                field_frame, 
+                                text=f"{display_label}:", 
+                                font=("Helvetica", 12, "bold"),
+                                wraplength=280,  # Permite quebra de texto
+                                justify="left"    # Alinha o texto quebrado à esquerda
+                            )
+                            label.grid(row=0, column=0, sticky='nw', padx=(0,20))
+                            
+                            # Valor com wrapping
+                            value_text = str(row_data[col])
+                            value = tb.Label(
+                                field_frame, 
+                                text=value_text, 
+                                font=("Helvetica", 12),
+                                wraplength=400,  # Permite quebra de texto
+                                justify="left",   # Alinha o texto quebrado à esquerda
+                            )
+                            value.grid(row=0, column=1, sticky='nw')
+                            
+                            # Configura o grid para expandir na vertical se necessário
+                            field_frame.grid_rowconfigure(0, weight=1)
+                            
+                        row_idx += 1
 
             if section_name == "Informações Financeiras":
                 if row_data['Status'] == '':
