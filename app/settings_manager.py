@@ -7,6 +7,8 @@ from tkinter import messagebox
 import json
 import os
 import hashlib
+from datetime import datetime
+import logger_app
 
 BTN_WIDTH = 35
 
@@ -17,7 +19,7 @@ WINDOW_SIZES = {
     'settings': (600, 480),  # Janela principal de configurações
     'column_selector': (600, 480),  # Seletor de colunas
     'user_manager': (600, 480),  # Gerenciador de usuários
-    'add_user': (400, 480),  # Adicionar usuário
+    'add_user': (600, 480),  # Adicionar usuário
     'email_template': (600, 480),  # Editor de template de email
     'notification': (600, 480),  # Configuração de notificações
     'add_email': (400, 150),  # Adicionar email dialog
@@ -373,71 +375,259 @@ class SettingsManager:
         btn_frame.pack(pady=5)
 
         def add_user():
+            def confirm_add():
+                # Validação dos campos
+                if not all([login_var.get(), name_var.get(), pass_var.get(), email_var.get()]):
+                    messagebox.showerror("Erro", "Todos os campos são obrigatórios.")
+                    return
+                
+                if pass_var.get() != confirm_pass_var.get():
+                    messagebox.showerror("Erro", "As senhas não coincidem.")
+                    return
+                    
+                if email_var.get() != confirm_email_var.get():
+                    messagebox.showerror("Erro", "Os emails não coincidem.")
+                    return
+                
+                if login_var.get() in db_users:
+                    messagebox.showerror("Erro", "Login já existe.")
+                    return
+
+                try:
+                    # Prepara dados do usuário
+                    user_data = {
+                        "name": name_var.get(),
+                        "login": login_var.get(),
+                        "hashed_password": hash_password(pass_var.get() + login_var.get()),
+                        "role": role_var.get(),
+                        "email": email_var.get(),
+                        "role_name": self.ROLE_NAMES[role_var.get()]
+                    }
+
+                    # Email para o novo usuário
+                    user_email_body = f"""
+                    Olá {user_data['name']},
+
+                    Sua conta foi criada no Sistema Financeiro IG com as seguintes informações:
+
+                    Login: {user_data['login']}
+                    Cargo: {user_data['role']} - {user_data['role_name']}
+
+                    Você já pode acessar o sistema usando seu login e a senha cadastrada.
+
+                    Atenciosamente,
+                    Equipe do Sistema Financeiro IG
+                    """
+
+                    # Email para administradores
+                    admin_email_body = f"""
+                    Um novo usuário foi cadastrado no sistema:
+
+                    Nome: {user_data['name']}
+                    Login: {user_data['login']}
+                    Email: {user_data['email']}
+                    Cargo: {user_data['role']} - {user_data['role_name']}
+                    Data: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+
+                    Este é um email automático de notificação.
+                    """
+
+                    # Lista de emails a serem enviados
+                    emails_to_send = [
+                        {
+                            "recipient": user_data['email'],
+                            "subject": "Bem-vindo ao Sistema Financeiro IG",
+                            "body": user_email_body,
+                            "type": "Novo Usuário"
+                        }
+                    ]
+
+                    # Adiciona emails dos administradores
+                    admin_emails = self.app.sheets_handler.get_notification_emails().get('ADMIN', [])
+                    for admin_email in admin_emails:
+                        emails_to_send.append({
+                            "recipient": admin_email,
+                            "subject": "Novo Usuário Cadastrado - Sistema Financeiro IG",
+                            "body": admin_email_body,
+                            "type": "Notificação Admin"
+                        })
+
+                    # Salva o usuário no banco de dados
+                    db_users[user_data['login']] = user_data
+                    save_users_db(db_users)
+                    refresh_users()
+
+                    # Envia os emails
+                    progress_window = tb.Toplevel(addw)
+                    progress_window.title("Enviando Emails")
+                    w, h = 400, 300
+                    self._center_window(progress_window, w, h)
+                    self._prevent_resize_maximize(progress_window)
+
+                    tk.Label(progress_window, text="Enviando emails de notificação...").pack(pady=10)
+
+                    progress = tb.Progressbar(
+                        progress_window,
+                        maximum=len(emails_to_send),
+                        bootstyle="success-striped"
+                    )
+                    progress.pack(fill=tk.X, padx=20, pady=10)
+
+                    status_label = tk.Label(progress_window, text="Iniciando...")
+                    status_label.pack(pady=5)
+
+                    success_count = 0
+                    for i, email in enumerate(emails_to_send):
+                        try:
+                            status_label.config(text=f"Enviando para {email['recipient']}...")
+                            self.app.email_sender.send_email(
+                                email["recipient"],
+                                email["subject"],
+                                email["body"]
+                            )
+                            success_count += 1
+                        except Exception as e:
+                            logger_app.log_error(f"Erro ao enviar email: {str(e)}")
+                        
+                        progress['value'] = i + 1
+                        progress_window.update()
+
+                    status_label.config(text=f"Concluído! {success_count} emails enviados.")
+                    
+                    # Fecha as janelas após 2 segundos
+                    progress_window.after(2000, progress_window.destroy)
+                    addw.after(2200, addw.destroy)
+
+                except Exception as e:
+                    logger_app.log_error(f"Erro ao cadastrar usuário: {str(e)}")
+                    messagebox.showerror("Erro", f"Erro ao cadastrar usuário: {str(e)}")
+
             addw = tb.Toplevel(um_window)
             addw.title("Adicionar Usuário")
             w, h = WINDOW_SIZES['add_user']
             self._center_window(addw, w, h)
             self._prevent_resize_maximize(addw)
 
-            tk.Label(addw, text="Login:").pack(pady=5)
+            # Container principal que ocupará toda a janela
+            container = tb.Frame(addw)
+            container.pack(fill=BOTH, expand=True)
+
+            # Frame com scroll para o conteúdo
+            canvas = tb.Canvas(container)
+            scrollbar = tb.Scrollbar(container, orient="vertical", command=canvas.yview)
+            
+            # Frame que contém o conteúdo scrollável
+            content_frame = tb.Frame(canvas)
+            content_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+            # Configura o scroll
+            content_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            canvas.create_window((0, 0), window=content_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            # Frame para campos de entrada
+            entry_frame = tb.LabelFrame(content_frame, text="Informações do Usuário", padding=15)
+            entry_frame.pack(fill=X, expand=True)
+
+            # Configuração do grid
+            entry_frame.columnconfigure(0, weight=1, minsize=150)
+            entry_frame.columnconfigure(1, weight=3, minsize=350)
+
+            # Variáveis
             login_var = tk.StringVar()
-            login_entry = tk.Entry(addw, textvariable=login_var)
-            login_entry.pack()
-
-            tk.Label(addw, text="Senha:").pack(pady=5)
+            name_var = tk.StringVar()
             pass_var = tk.StringVar()
-            pass_entry = tk.Entry(addw, textvariable=pass_var, show="*")
-            pass_entry.pack()
-
-            tk.Label(addw, text="Confirmar Senha:").pack(pady=5)
             confirm_pass_var = tk.StringVar()
-            confirm_pass_entry = tk.Entry(addw, textvariable=confirm_pass_var, show="*")
-            confirm_pass_entry.pack()
-
-            tk.Label(addw, text="Cargo:").pack(pady=5)
             role_var = tk.StringVar(value="A1")
-            role_frame = tk.Frame(addw)
-            role_frame.pack(pady=5)
-
-            for role, name in self.ROLE_NAMES.items():
-                rb = tk.Radiobutton(role_frame, text=f"{role} - {name}", 
-                                  variable=role_var, value=role)
-                rb.pack(anchor='w')
-
-            tk.Label(addw, text="Email:").pack(pady=5)
             email_var = tk.StringVar()
-            email_entry = tk.Entry(addw, textvariable=email_var)
-            email_entry.pack()
+            confirm_email_var = tk.StringVar()
 
-            def confirm_add():
-                user = login_var.get().strip()
-                pwd = pass_var.get().strip()
-                confirm_pwd = confirm_pass_var.get().strip()
-                r = role_var.get().strip()
-                em = email_var.get().strip()
+            # Grid para organizar os campos com maior largura
+            row = 0
+            entry_width = 50  # Aumenta a largura dos campos de entrada
 
-                if not user or not pwd or not r or not em:
-                    messagebox.showwarning("Aviso", "Preencha todos os campos!")
-                    return
-                if pwd != confirm_pwd:
-                    messagebox.showwarning("Aviso", "As senhas não coincidem!")
-                    return
-                if user in db_users:
-                    messagebox.showwarning("Aviso", "Usuário já existe.")
-                    return
+            # Nome completo
+            tb.Label(entry_frame, text="Nome completo:").grid(row=row, column=0, sticky='w', pady=5, padx=5)
+            name_entry = tb.Entry(entry_frame, textvariable=name_var, width=entry_width)
+            name_entry.grid(row=row, column=1, sticky='ew', pady=5, padx=5)
+            row += 1
 
-                hashed_pwd = hash_password(pwd+user)
-                db_users[user] = {
-                    "hashed_password": hashed_pwd, 
-                    "role": r, 
-                    "email": em,
-                    "role_name": self.ROLE_NAMES[r]
-                }
-                save_users_db(db_users)
-                refresh_users()
-                addw.destroy()
+            # Login
+            tb.Label(entry_frame, text="Login:").grid(row=row, column=0, sticky='w', pady=5, padx=5)
+            login_entry = tb.Entry(entry_frame, textvariable=login_var, width=entry_width)
+            login_entry.grid(row=row, column=1, sticky='ew', pady=5, padx=5)
+            row += 1
 
-            tb.Button(addw, text="Adicionar", bootstyle=SUCCESS, command=confirm_add).pack(pady=10)
+            # Email
+            tb.Label(entry_frame, text="Email:").grid(row=row, column=0, sticky='w', pady=5, padx=5)
+            email_entry = tb.Entry(entry_frame, textvariable=email_var, width=entry_width)
+            email_entry.grid(row=row, column=1, sticky='ew', pady=5, padx=5)
+            row += 1
+
+            # Confirmar Email
+            tb.Label(entry_frame, text="Confirmar Email:").grid(row=row, column=0, sticky='w', pady=5, padx=5)
+            confirm_email_entry = tb.Entry(entry_frame, textvariable=confirm_email_var, width=entry_width)
+            confirm_email_entry.grid(row=row, column=1, sticky='ew', pady=5, padx=5)
+            row += 1
+
+            # Senha
+            tb.Label(entry_frame, text="Senha:").grid(row=row, column=0, sticky='w', pady=5, padx=5)
+            pass_entry = tb.Entry(entry_frame, textvariable=pass_var, show="*", width=entry_width)
+            pass_entry.grid(row=row, column=1, sticky='ew', pady=5, padx=5)
+            row += 1
+
+            # Confirmar Senha
+            tb.Label(entry_frame, text="Confirmar Senha:").grid(row=row, column=0, sticky='w', pady=5, padx=5)
+            confirm_pass_entry = tb.Entry(entry_frame, textvariable=confirm_pass_var, show="*", width=entry_width)
+            confirm_pass_entry.grid(row=row, column=1, sticky='ew', pady=5, padx=5)
+            row += 1
+
+            # Frame para cargos com melhor distribuição
+            role_frame = tb.LabelFrame(entry_frame, text="Cargo", padding=10)
+            role_frame.grid(row=row, column=0, columnspan=2, sticky='ew', pady=10, padx=5)
+
+            # Melhor distribuição dos radio buttons
+            role_frame.columnconfigure(0, weight=1)
+            role_frame.columnconfigure(1, weight=1)
+            role_frame.columnconfigure(2, weight=1)
+
+            for i, (role, name) in enumerate(self.ROLE_NAMES.items()):
+                rb = tb.Radiobutton(
+                    role_frame,
+                    text=f"{role} - {name}",
+                    variable=role_var,
+                    value=role,
+                    padding=5
+                )
+                rb.grid(row=i//3, column=i%3, sticky='w', padx=10, pady=5)
+
+            # Frame fixo para botões (fora da área scrollável)
+            button_frame = tb.Frame(addw)
+            button_frame.pack(side='bottom', fill=X, padx=20, pady=20)
+
+            # Botões centralizados
+            tb.Button(
+                button_frame,
+                text="Adicionar",
+                bootstyle=SUCCESS,
+                command=confirm_add,
+                width=20
+            ).pack(side=LEFT, padx=5, expand=True)
+
+            tb.Button(
+                button_frame,
+                text="Cancelar",
+                bootstyle=DANGER,
+                command=addw.destroy,
+                width=20
+            ).pack(side=LEFT, padx=5, expand=True)
+
+            # Configura o canvas e scrollbar
+            canvas.pack(side=LEFT, fill=BOTH, expand=True)
+            scrollbar.pack(side=RIGHT, fill=Y)
+
+            # Foca no primeiro campo
+            name_entry.focus_set()
 
         def remove_user():
             sel = listbox.curselection()
