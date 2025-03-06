@@ -25,7 +25,7 @@ WINDOW_SIZES = {
     'email_template': (600, 520),  # Aumentado em 40px
     'notification': (600, 520),  # Aumentado em 40px
     'add_email': (400, 150),  # Mantido mesmo tamanho
-    'machine_manager': (600, 400)  # Nova janela
+    'machine_manager': (600, 520)  # Nova janela
 }
 
 def load_users_db():
@@ -44,11 +44,10 @@ def hash_password(password):
     return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
 class SettingsManager:
+    # Atualizar o dicionário de cargos para ter apenas A1, A3 e A5
     ROLE_NAMES = {
         "A1": "Visualizador",
-        "A2": "Editor Básico",
-        "A3": "Editor Avançado",
-        "A4": "Financeiro",
+        "A3": "Editor",
         "A5": "Administrador"
     }
 
@@ -722,15 +721,22 @@ Este é um email automático de notificação.""",
             role_frame.columnconfigure(1, weight=1)
             role_frame.columnconfigure(2, weight=1)
 
-            for i, (role, name) in enumerate(self.ROLE_NAMES.items()):
+            # Atualizado para mostrar apenas os três cargos
+            roles = [
+                ("A1", "Visualizador - Apenas visualização de solicitações"),
+                ("A3", "Editor - Gerenciamento de solicitações e pagamentos"),
+                ("A5", "Administrador - Acesso total ao sistema")
+            ]
+
+            for i, (role, desc) in enumerate(roles):
                 rb = tb.Radiobutton(
                     role_frame,
-                    text=f"{role} - {name}",
+                    text=f"{role} - {desc}",
                     variable=role_var,
                     value=role,
                     padding=5
                 )
-                rb.grid(row=i//3, column=i%3, sticky='w', padx=10, pady=5)
+                rb.grid(row=i, column=0, sticky='w', padx=10, pady=5)
 
             # Frame fixo para botões (fora da área scrollável)
             button_frame = tb.Frame(addw)
@@ -934,18 +940,12 @@ Este é um email automático de notificação.""",
         list_frame.pack(fill="both", expand=True)
 
         # Treeview para listar máquinas
-        columns = ("Hostname", "IP", "Data Registro", "ID Encriptado", "Chave")
+        columns = ("ID Encriptado", "Chave")
         tree = tb.Treeview(list_frame, columns=columns, show="headings", height=10)
-        
-        # Configurar colunas
-        tree.column("Hostname", width=120)
-        tree.column("IP", width=100)
-        tree.column("Data Registro", width=120)
-        tree.column("ID Encriptado", width=200)
-        tree.column("Chave", width=200)
         
         for col in columns:
             tree.heading(col, text=col)
+            tree.column(col, width=250)
 
         tree.pack(side="left", fill="both", expand=True)
 
@@ -958,146 +958,36 @@ Este é um email automático de notificação.""",
         btn_frame = tb.Frame(main_frame)
         btn_frame.pack(fill="x", pady=10)
 
-        def show_confirmation(title, message, callback):
-            confirm = tb.Toplevel()
-            confirm.title(title)
-            confirm.attributes('-topmost', 1)  # Força janela ficar no topo
-            confirm.grab_set()  # Força foco na janela
-            
-            w, h = 400, 150
-            self._center_window(confirm, w, h)
-            self._prevent_resize_maximize(confirm)
-            
-            tb.Label(
-                confirm, 
-                text=message,
-                wraplength=350,
-                padding=20
-            ).pack(expand=True)
-            
-            btn_frame = tb.Frame(confirm)
-            btn_frame.pack(pady=10)
-            
-            tb.Button(
-                btn_frame,
-                text="Sim",
-                bootstyle=DANGER,
-                command=lambda: [callback(), confirm.destroy()]
-            ).pack(side=LEFT, padx=10)
-            
-            tb.Button(
-                btn_frame,
-                text="Não",
-                bootstyle=SECONDARY,
-                command=confirm.destroy
-            ).pack(side=LEFT, padx=10)
-
         def refresh_list():
             machine_manager = MachineManager("credentials.json")
             for i in tree.get_children():
                 tree.delete(i)
             machines = machine_manager.get_registered_machines()
-            
-            for row in machines:
-                if len(row) == 5:  # Garante que a linha tem todos os campos
-                    tree.insert("", "end", values=(
-                        row[2],  # Hostname
-                        row[3],  # IP
-                        row[4],  # Data Registro
-                        row[0],  # ID Encriptado
-                        row[1]   # Chave
-                    ))
+            for idx, (enc_id, key) in enumerate(machines[1:], start=1):  # Skip header
+                tree.insert("", "end", values=(enc_id, key))
 
         def register_current():
-            def do_register():
-                machine_manager = MachineManager("credentials.json")
-                if machine_manager.register_machine():
-                    msg = tb.Toplevel()
-                    msg.title("Sucesso")
-                    msg.attributes('-topmost', 1)
-                    msg.grab_set()
-                    
-                    w, h = 300, 100
-                    self._center_window(msg, w, h)
-                    self._prevent_resize_maximize(msg)
-                    
-                    tb.Label(msg, text="Máquina registrada com sucesso!", padding=20).pack()
-                    tb.Button(msg, text="OK", command=msg.destroy).pack()
-                    
-                    refresh_list()
-                else:
-                    msg = tb.Toplevel()
-                    msg.title("Erro")
-                    msg.attributes('-topmost', 1)
-                    msg.grab_set()
-                    
-                    w, h = 300, 100
-                    self._center_window(msg, w, h)
-                    self._prevent_resize_maximize(msg)
-                    
-                    tb.Label(msg, text="Falha ao registrar máquina!", padding=20).pack()
-                    tb.Button(msg, text="OK", command=msg.destroy).pack()
-
-            show_confirmation(
-                "Confirmar Registro",
-                "Deseja registrar esta máquina no sistema?",
-                do_register
-            )
+            machine_manager = MachineManager("credentials.json")
+            if machine_manager.register_machine():
+                messagebox.showinfo("Sucesso", "Máquina registrada com sucesso!")
+                refresh_list()
+            else:
+                messagebox.showerror("Erro", "Falha ao registrar máquina")
 
         def remove_selected():
             selected = tree.selection()
             if not selected:
-                msg = tb.Toplevel()
-                msg.title("Aviso")
-                msg.attributes('-topmost', 1)
-                msg.grab_set()
-                
-                w, h = 300, 100
-                self._center_window(msg, w, h)
-                self._prevent_resize_maximize(msg)
-                
-                tb.Label(msg, text="Selecione uma máquina para remover!", padding=20).pack()
-                tb.Button(msg, text="OK", command=msg.destroy).pack()
+                messagebox.showwarning("Aviso", "Selecione uma máquina para remover")
                 return
-
-            item = tree.item(selected[0])
-            hostname = item['values'][0]
-            
-            def do_remove():
-                idx = tree.index(selected[0]) + 2
+                
+            if messagebox.askyesno("Confirmar", "Deseja remover a máquina selecionada?"):
+                idx = tree.index(selected[0]) + 2  # +2 porque temos cabeçalho
                 machine_manager = MachineManager("credentials.json")
                 if machine_manager.remove_machine(idx):
-                    msg = tb.Toplevel()
-                    msg.title("Sucesso")
-                    msg.attributes('-topmost', 1)
-                    msg.grab_set()
-                    
-                    w, h = 300, 100
-                    self._center_window(msg, w, h)
-                    self._prevent_resize_maximize(msg)
-                    
-                    tb.Label(msg, text="Máquina removida com sucesso!", padding=20).pack()
-                    tb.Button(msg, text="OK", command=msg.destroy).pack()
-                    
+                    messagebox.showinfo("Sucesso", "Máquina removida com sucesso!")
                     refresh_list()
                 else:
-                    msg = tb.Toplevel()
-                    msg.title("Erro")
-                    msg.attributes('-topmost', 1)
-                    msg.grab_set()
-                    
-                    w, h = 300, 100
-                    self._center_window(msg, w, h)
-                    self._prevent_resize_maximize(msg)
-                    
-                    tb.Label(msg, text="Falha ao remover máquina!", padding=20).pack()
-                    tb.Button(msg, text="OK", command=msg.destroy).pack()
-
-            show_confirmation(
-                "Confirmar Remoção",
-                f"Deseja remover a máquina {hostname}?",
-                do_remove
-            )
+                    messagebox.showerror("Erro", "Falha ao remover máquina")
 
         # Botões com novo estilo e tamanho
         btn_register = tb.Button(

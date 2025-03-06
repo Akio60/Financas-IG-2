@@ -189,7 +189,7 @@ class App:
             command=self.open_settings
         )
         self.settings_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
-        if self.user_role in ["A1", "A2", "A3", "A4"]:
+        if self.user_role != "A5":
             self.settings_button.pack_forget()
 
         logout_button = tb.Button(
@@ -587,7 +587,7 @@ class App:
 
     def on_treeview_click(self, event):
         if self.user_role == "A1":
-            messagebox.showinfo("Aviso", "Você (A1) não tem acesso aos detalhes.")
+            messagebox.showinfo("Aviso", "Visualizadores (A1) não têm acesso aos detalhes.")
             return
 
         selected_item = self.tree.selection()
@@ -601,7 +601,7 @@ class App:
 
     def open_settings(self):
         if self.user_role != "A5":
-            messagebox.showinfo("Aviso", "Acesso restrito ao admin (A5).")
+            messagebox.showinfo("Aviso", "Acesso restrito ao Administrador (A5).")
             return
         self.settings_manager.open_settings()
 

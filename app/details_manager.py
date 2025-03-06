@@ -435,6 +435,43 @@ class DetailsManager:
     def add_actions_tab(self, notebook, row_data):
         view = self.app.current_view
         role = self.app.user_role
+        
+        # Simplifica verificações de permissão
+        def check_permission():
+            return role in ["A3", "A5"]  # Apenas A3 e A5 podem executar ações
+        
+        def authorize_payment():
+            if not check_permission():
+                messagebox.showwarning("Permissão Negada", "Somente Editor ou Administrador.")
+                return
+            new_status = 'Pronto para pagamento'
+            ts_str = row_data['Carimbo de data/hora']
+            
+            # Removida atualização direta do status
+            notification_data = self.prepare_notification_data("ProntoPagamento", row_data)
+            self.unified_email_window(row_data, new_status, notification_data)
+
+        def cancel_auxilio():
+            if not check_permission():
+                messagebox.showwarning("Negado", "Somente Editor ou Administrador podem cancelar.")
+                return
+                
+            confirm = messagebox.askyesno("Confirmar", "Tem certeza que deseja recusar/cancelar o auxílio?")
+            if confirm:
+                new_status = 'Cancelado'
+                # Removida atualização direta do status
+                notification_data = self.prepare_notification_data("Cancelado", row_data)
+                self.unified_email_window(row_data, new_status, notification_data)
+
+        def payment_made():
+            if not check_permission():
+                messagebox.showwarning("Negado", "Somente Editor ou Administrador podem efetuar pagamento.")
+                return
+            new_status = 'Pago'
+            # Removida atualização direta do status
+            notification_data = self.prepare_notification_data("Pago", row_data)
+            self.unified_email_window(row_data, new_status, notification_data)
+
         actions_tab = tb.Frame(notebook)
         notebook.add(actions_tab, text="Ações")
         
@@ -447,39 +484,6 @@ class DetailsManager:
         # Define um tamanho padrão para todos os botões
         BTN_WIDTH = 250
         BTN_PAD = 10
-
-        # Funções de callback permanecem as mesmas
-        def authorize_payment():
-            if role not in ["A3", "A5"]:
-                messagebox.showwarning("Permissão Negada", "Somente A3 ou A5.")
-                return
-            new_status = 'Pronto para pagamento'
-            ts_str = row_data['Carimbo de data/hora']
-            
-            # Removida atualização direta do status
-            notification_data = self.prepare_notification_data("ProntoPagamento", row_data)
-            self.unified_email_window(row_data, new_status, notification_data)
-
-        def cancel_auxilio():
-            if role not in ["A3", "A5"]:
-                messagebox.showwarning("Negado", "Somente A3 ou A5 podem cancelar.")
-                return
-                
-            confirm = messagebox.askyesno("Confirmar", "Tem certeza que deseja recusar/cancelar o auxílio?")
-            if confirm:
-                new_status = 'Cancelado'
-                # Removida atualização direta do status
-                notification_data = self.prepare_notification_data("Cancelado", row_data)
-                self.unified_email_window(row_data, new_status, notification_data)
-
-        def payment_made():
-            if role not in ["A3", "A4", "A5"]:
-                messagebox.showwarning("Negado", "Você não tem permissão para efetuar pagamento.")
-                return
-            new_status = 'Pago'
-            # Removida atualização direta do status
-            notification_data = self.prepare_notification_data("Pago", row_data)
-            self.unified_email_window(row_data, new_status, notification_data)
 
         # Layout centralizado por view
         if view == "Aceitas":
