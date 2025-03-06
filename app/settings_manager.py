@@ -139,8 +139,20 @@ class SettingsManager:
                 command=self.manage_machines
             )
             machine_btn.grid(row=4, column=0, sticky='w', pady=10)
+            
+            row_start_col = 5  # Começa do 5 para A5
+        else:
+            history_btn = tb.Button(  # Apenas histórico disponível para A3
+                col1,
+                text="Histórico de alterações",
+                bootstyle=INFO,
+                width=BTN_WIDTH,
+                command=self.show_logs
+            )
+            history_btn.grid(row=1, column=0, sticky='w', pady=10)
+            
+            row_start_col = 2  # Começa do 2 para A3
 
-        row_start_col = 5
         columns_label = tb.Label(col1, text="Definição de Colunas", font=("Helvetica", 10, "bold"))
         columns_label.grid(row=row_start_col, column=0, sticky='w', pady=(15,5))
         row_start_col += 1
@@ -204,7 +216,7 @@ class SettingsManager:
         for template_name in templates_order:
             button = tb.Button(
                 col2, 
-                text=f"Template: {template_name}", 
+                text=f"{template_name}", 
                 bootstyle=SECONDARY,
                 width=BTN_WIDTH,
                 command=lambda t=template_name: self.edit_email_template(t)

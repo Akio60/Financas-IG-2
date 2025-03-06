@@ -189,7 +189,7 @@ class App:
             command=self.open_settings
         )
         self.settings_button.pack(side=BOTTOM, pady=10, padx=10, fill=X)
-        if self.user_role != "A5":
+        if self.user_role not in ["A3", "A5"]:  # Modificado para incluir A3
             self.settings_button.pack_forget()
 
         logout_button = tb.Button(
@@ -600,8 +600,8 @@ class App:
         self.statistics_manager.show_statistics()
 
     def open_settings(self):
-        if self.user_role != "A5":
-            messagebox.showinfo("Aviso", "Acesso restrito ao Administrador (A5).")
+        if self.user_role not in ["A3", "A5"]:  # Modificado para incluir A3
+            messagebox.showinfo("Aviso", "Acesso restrito.")
             return
         self.settings_manager.open_settings()
 
