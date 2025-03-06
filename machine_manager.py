@@ -77,45 +77,23 @@ class MachineManager:
 
     def register_machine(self):
         try:
-            # Verifica registro local existente
-            if os.path.exists(self.machine_file):
-                try:
-                    with open(self.machine_file, 'r') as f:
-                        existing_data = json.load(f)
-                        if self._validate_machine_data(existing_data):
-                            logger_app.append_log(
-                                logger_app.LogLevel.INFO,
-                                logger_app.LogCategory.SYSTEM,
-                                "SYSTEM",
-                                "MACHINE_CHECK",
-                                "Máquina já registrada localmente"
-                            )
-                            return True
-                except Exception as e:
-                    logger_app.log_error(f"Erro ao ler arquivo local: {str(e)}")
-
-            # Obtém informações da máquina
+            # Obtém informações da máquina atual
             machine_info = self._get_machine_info()
             if not machine_info:
                 return False
             
             # Verifica se máquina já está registrada na planilha
             worksheet = self._get_serial_worksheet()
-            registered_machines = worksheet.get_all_records()
+            registered_machines = worksheet.get_all_records(expected_headers=["Machine Info", "Key", "Hostname", "Last IP", "Added Date"])
             
+            # Procura e remove registro anterior se existir
+            row_index = 2  # Começa do 2 pois 1 é o cabeçalho
             for machine in registered_machines:
-                try:
-                    if machine.get('Hostname') == machine_info['hostname']:
-                        logger_app.append_log(
-                            logger_app.LogLevel.INFO,
-                            logger_app.LogCategory.SYSTEM,
-                            "SYSTEM",
-                            "MACHINE_CHECK",
-                            f"Máquina {machine_info['hostname']} já registrada na planilha"
-                        )
-                        return True
-                except:
-                    continue
+                if machine.get('Hostname') == machine_info['hostname']:
+                    # Remove o registro antigo
+                    worksheet.delete_rows(row_index)
+                    break
+                row_index += 1
 
             # Gera nova chave e encripta dados
             key_a = Fernet.generate_key()
@@ -124,7 +102,7 @@ class MachineManager:
             encrypted_a = fernet_a.encrypt(json.dumps(machine_info).encode()).decode()
             encrypted_b = self.fernet_b.encrypt(json.dumps(machine_info).encode()).decode()
             
-            # Adiciona na planilha
+            # Adiciona novo registro na planilha
             new_row = [
                 encrypted_a,           # Machine Info (encrypted)
                 key_a.decode(),       # Key
@@ -226,30 +204,22 @@ class MachineManager:
     def get_registered_machines(self):
         try:
             worksheet = self._get_serial_worksheet()
-            all_values = worksheet.get_all_values()
             
-            # Verifica se tem dados além do cabeçalho
-            if len(all_values) <= 1:
-                return []
-                
-            # Remove cabeçalho e filtra linhas válidas
-            data_rows = all_values[1:]
+            # Define os cabeçalhos esperados
+            expected_headers = ["Machine Info", "Key", "Hostname", "Last IP", "Added Date"]
+            
+            # Usa get_all_records com os cabeçalhos esperados
+            records = worksheet.get_all_records(expected_headers=expected_headers)
             valid_rows = []
             
-            for row in data_rows:
-                if len(row) == 5 and all(col.strip() for col in row):  # Verifica se tem 5 colunas e nenhuma vazia
-                    machine_info = row[0]  # Machine Info encriptada
-                    key = row[1]          # Chave
-                    hostname = row[2]      # Hostname
-                    ip = row[3]           # IP
-                    date = row[4]         # Data
-                    
+            for record in records:
+                if all(field.strip() for field in record.values()):  # Verifica se nenhum campo está vazio
                     valid_rows.append([
-                        machine_info,
-                        key,
-                        hostname,
-                        ip,
-                        date
+                        record["Machine Info"],
+                        record["Key"],
+                        record["Hostname"],
+                        record["Last IP"],
+                        record["Added Date"]
                     ])
             
             return valid_rows
