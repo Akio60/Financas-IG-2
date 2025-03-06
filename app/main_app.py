@@ -586,8 +586,8 @@ class App:
         tv.heading(col, command=lambda: self.treeview_sort_column(tv, col, not reverse))
 
     def on_treeview_click(self, event):
-        if self.user_role == "A1":
-            messagebox.showinfo("Aviso", "Visualizadores (A1) não têm acesso aos detalhes.")
+        if self.user_role in ["A1", "A5"]:  # Modificado para incluir A5
+            messagebox.showinfo("Aviso", "Este perfil não tem acesso aos detalhes.")
             return
 
         selected_item = self.tree.selection()
@@ -605,6 +605,10 @@ class App:
             return
         self.settings_manager.open_settings()
 
+    def show_logs(self):
+        """Abre o visualizador de logs"""
+        from app.log_viewer import LogViewer
+        LogViewer(self.root)
     def show_logs(self):
         """Abre o visualizador de logs"""
         from app.log_viewer import LogViewer

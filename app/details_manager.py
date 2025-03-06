@@ -78,8 +78,8 @@ class DetailsManager:
             pass
 
     def show_details_in_place(self, row_data):
-        if self.app.user_role == "A1":
-            messagebox.showinfo("Aviso", "Cargo A1 não acessa detalhes.")
+        if self.app.user_role in ["A1", "A5"]:  # Modificado para incluir A5
+            messagebox.showinfo("Aviso", "Este perfil não acessa detalhes.")
             return
 
         # Oculta o frame da tabela principal, se existir
