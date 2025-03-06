@@ -3,6 +3,7 @@
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
 import tkinter as tk
+from machine_manager import MachineManager
 from tkinter import messagebox
 import json
 import os
@@ -17,13 +18,14 @@ USERS_DB_FILE = "users_db.json"
 
 # Tamanhos padrão de janelas
 WINDOW_SIZES = {
-    'settings': (600, 480),  # Janela principal de configurações
-    'column_selector': (600, 480),  # Seletor de colunas
-    'user_manager': (600, 480),  # Gerenciador de usuários
-    'add_user': (600, 480),  # Adicionar usuário
-    'email_template': (600, 480),  # Editor de template de email
-    'notification': (600, 480),  # Configuração de notificações
-    'add_email': (400, 150),  # Adicionar email dialog
+    'settings': (600, 520),  # Aumentado em 40px
+    'column_selector': (600, 520),  # Aumentado em 40px 
+    'user_manager': (600, 520),  # Aumentado em 40px
+    'add_user': (600, 520),  # Aumentado em 40px
+    'email_template': (600, 520),  # Aumentado em 40px
+    'notification': (600, 520),  # Aumentado em 40px
+    'add_email': (400, 150),  # Mantido mesmo tamanho
+    'machine_manager': (600, 400)  # Nova janela
 }
 
 def load_users_db():
@@ -130,6 +132,15 @@ class SettingsManager:
             )
             history_btn.grid(row=3, column=0, sticky='w', pady=10)
             
+            machine_btn = tb.Button(
+                col1,
+                text="Gerenciar Máquinas Autorizadas",
+                bootstyle=INFO,
+                width=BTN_WIDTH,
+                command=self.manage_machines
+            )
+            machine_btn.grid(row=4, column=0, sticky='w', pady=10)
+
         row_start_col = 5
         columns_label = tb.Label(col1, text="Definição de Colunas", font=("Helvetica", 10, "bold"))
         columns_label.grid(row=row_start_col, column=0, sticky='w', pady=(15,5))
@@ -892,3 +903,229 @@ Este é um email automático de notificação.""",
         """Abre o visualizador de logs"""
         from app.log_viewer import LogViewer
         LogViewer(self.app.root)
+
+    def manage_machines(self):
+        """Interface para gerenciamento de máquinas autorizadas"""
+        
+        mm_window = tb.Toplevel(self.app.root)
+        mm_window.title("Gerenciar Máquinas")
+        w, h = WINDOW_SIZES['machine_manager']
+        self._center_window(mm_window, w, h)
+        self._prevent_resize_maximize(mm_window)
+        mm_window.attributes('-topmost', True)
+
+        # Frame principal
+        main_frame = tb.Frame(mm_window)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Frame superior para título
+        title_frame = tb.Frame(main_frame)
+        title_frame.pack(fill="x", pady=(0,10))
+        
+        title = tb.Label(
+            title_frame, 
+            text="Lista de Máquinas Autorizadas",
+            font=("Helvetica", 12, "bold")
+        )
+        title.pack(pady=5)
+
+        # Frame para lista de máquinas
+        list_frame = tb.Frame(main_frame)
+        list_frame.pack(fill="both", expand=True)
+
+        # Treeview para listar máquinas
+        columns = ("Hostname", "IP", "Data Registro", "ID Encriptado", "Chave")
+        tree = tb.Treeview(list_frame, columns=columns, show="headings", height=10)
+        
+        # Configurar colunas
+        tree.column("Hostname", width=120)
+        tree.column("IP", width=100)
+        tree.column("Data Registro", width=120)
+        tree.column("ID Encriptado", width=200)
+        tree.column("Chave", width=200)
+        
+        for col in columns:
+            tree.heading(col, text=col)
+
+        tree.pack(side="left", fill="both", expand=True)
+
+        # Scrollbar
+        scrollbar = tb.Scrollbar(list_frame, orient="vertical", command=tree.yview)
+        scrollbar.pack(side="right", fill="y")
+        tree.configure(yscrollcommand=scrollbar.set)
+
+        # Frame para botões
+        btn_frame = tb.Frame(main_frame)
+        btn_frame.pack(fill="x", pady=10)
+
+        def show_confirmation(title, message, callback):
+            confirm = tb.Toplevel()
+            confirm.title(title)
+            confirm.attributes('-topmost', 1)  # Força janela ficar no topo
+            confirm.grab_set()  # Força foco na janela
+            
+            w, h = 400, 150
+            self._center_window(confirm, w, h)
+            self._prevent_resize_maximize(confirm)
+            
+            tb.Label(
+                confirm, 
+                text=message,
+                wraplength=350,
+                padding=20
+            ).pack(expand=True)
+            
+            btn_frame = tb.Frame(confirm)
+            btn_frame.pack(pady=10)
+            
+            tb.Button(
+                btn_frame,
+                text="Sim",
+                bootstyle=DANGER,
+                command=lambda: [callback(), confirm.destroy()]
+            ).pack(side=LEFT, padx=10)
+            
+            tb.Button(
+                btn_frame,
+                text="Não",
+                bootstyle=SECONDARY,
+                command=confirm.destroy
+            ).pack(side=LEFT, padx=10)
+
+        def refresh_list():
+            machine_manager = MachineManager("credentials.json")
+            for i in tree.get_children():
+                tree.delete(i)
+            machines = machine_manager.get_registered_machines()
+            
+            for row in machines:
+                if len(row) == 5:  # Garante que a linha tem todos os campos
+                    tree.insert("", "end", values=(
+                        row[2],  # Hostname
+                        row[3],  # IP
+                        row[4],  # Data Registro
+                        row[0],  # ID Encriptado
+                        row[1]   # Chave
+                    ))
+
+        def register_current():
+            def do_register():
+                machine_manager = MachineManager("credentials.json")
+                if machine_manager.register_machine():
+                    msg = tb.Toplevel()
+                    msg.title("Sucesso")
+                    msg.attributes('-topmost', 1)
+                    msg.grab_set()
+                    
+                    w, h = 300, 100
+                    self._center_window(msg, w, h)
+                    self._prevent_resize_maximize(msg)
+                    
+                    tb.Label(msg, text="Máquina registrada com sucesso!", padding=20).pack()
+                    tb.Button(msg, text="OK", command=msg.destroy).pack()
+                    
+                    refresh_list()
+                else:
+                    msg = tb.Toplevel()
+                    msg.title("Erro")
+                    msg.attributes('-topmost', 1)
+                    msg.grab_set()
+                    
+                    w, h = 300, 100
+                    self._center_window(msg, w, h)
+                    self._prevent_resize_maximize(msg)
+                    
+                    tb.Label(msg, text="Falha ao registrar máquina!", padding=20).pack()
+                    tb.Button(msg, text="OK", command=msg.destroy).pack()
+
+            show_confirmation(
+                "Confirmar Registro",
+                "Deseja registrar esta máquina no sistema?",
+                do_register
+            )
+
+        def remove_selected():
+            selected = tree.selection()
+            if not selected:
+                msg = tb.Toplevel()
+                msg.title("Aviso")
+                msg.attributes('-topmost', 1)
+                msg.grab_set()
+                
+                w, h = 300, 100
+                self._center_window(msg, w, h)
+                self._prevent_resize_maximize(msg)
+                
+                tb.Label(msg, text="Selecione uma máquina para remover!", padding=20).pack()
+                tb.Button(msg, text="OK", command=msg.destroy).pack()
+                return
+
+            item = tree.item(selected[0])
+            hostname = item['values'][0]
+            
+            def do_remove():
+                idx = tree.index(selected[0]) + 2
+                machine_manager = MachineManager("credentials.json")
+                if machine_manager.remove_machine(idx):
+                    msg = tb.Toplevel()
+                    msg.title("Sucesso")
+                    msg.attributes('-topmost', 1)
+                    msg.grab_set()
+                    
+                    w, h = 300, 100
+                    self._center_window(msg, w, h)
+                    self._prevent_resize_maximize(msg)
+                    
+                    tb.Label(msg, text="Máquina removida com sucesso!", padding=20).pack()
+                    tb.Button(msg, text="OK", command=msg.destroy).pack()
+                    
+                    refresh_list()
+                else:
+                    msg = tb.Toplevel()
+                    msg.title("Erro")
+                    msg.attributes('-topmost', 1)
+                    msg.grab_set()
+                    
+                    w, h = 300, 100
+                    self._center_window(msg, w, h)
+                    self._prevent_resize_maximize(msg)
+                    
+                    tb.Label(msg, text="Falha ao remover máquina!", padding=20).pack()
+                    tb.Button(msg, text="OK", command=msg.destroy).pack()
+
+            show_confirmation(
+                "Confirmar Remoção",
+                f"Deseja remover a máquina {hostname}?",
+                do_remove
+            )
+
+        # Botões com novo estilo e tamanho
+        btn_register = tb.Button(
+            btn_frame,
+            text="Registrar Esta Máquina",
+            bootstyle=SUCCESS,
+            width=25,
+            command=register_current
+        )
+        btn_register.pack(side="left", padx=5)
+
+        btn_remove = tb.Button(
+            btn_frame,
+            text="Remover Selecionada",
+            bootstyle=DANGER,
+            width=25,
+            command=remove_selected
+        )
+        btn_remove.pack(side="left", padx=5)
+
+        btn_refresh = tb.Button(
+            btn_frame,
+            text="Atualizar Lista",
+            bootstyle=INFO,
+            width=25,
+            command=refresh_list
+        )
+        btn_refresh.pack(side="left", padx=5)
+
+        # Carrega lista inicial
+        refresh_list()

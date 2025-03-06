@@ -8,6 +8,7 @@ import os
 import json
 import webbrowser
 import hashlib
+from machine_manager import MachineManager
 
 class RoundedButton(tk.Canvas):
     def __init__(
@@ -285,12 +286,21 @@ class LoginWindow:
         password = self.entry_pass.get().strip()
 
         if user in USERS_DB:
-            # Se o usuário possuir o campo "hashed_password", compara o hash da senha digitada
             if "hashed_password" in USERS_DB[user]:
                 if USERS_DB[user]["hashed_password"] == hash_password(password+user):
-                    self.username = user
-                    self.role = USERS_DB[user]["role"]
-                    self.window.destroy()
+                    is_admin_a5 = USERS_DB[user].get("role") == "A5"
+                    
+                    # Verifica autorização da máquina
+                    machine_manager = MachineManager("credentials.json")
+                    if machine_manager.is_machine_authorized(is_admin_a5):
+                        self.username = user
+                        self.role = USERS_DB[user]["role"]
+                        self.window.destroy()
+                    else:
+                        messagebox.showerror(
+                            "Erro", 
+                            "Este computador não está autorizado a acessar o sistema."
+                        )
                 else:
                     messagebox.showerror("Erro", "Senha incorreta!")
         else:
