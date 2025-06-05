@@ -13,9 +13,6 @@ import logger_app
 import re
 
 BTN_WIDTH = 35
-
-USERS_DB_FILE = "users_db.json"
-
 # Tamanhos padrão de janelas
 WINDOW_SIZES = {
     'settings': (600, 520),  # Aumentado em 40px
@@ -28,16 +25,24 @@ WINDOW_SIZES = {
     'machine_manager': (600, 520)  # Nova janela
 }
 
+def get_users_db_path():
+    appdata = os.getenv('APPDATA') or os.path.expanduser('~')
+    base_dir = os.path.join(appdata, 'Financas-IG')
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
+    return os.path.join(base_dir, "users_db.json")
+
 def load_users_db():
-    if os.path.exists(USERS_DB_FILE):
-        with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
+    path = get_users_db_path()
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
     return {}
 
 def save_users_db(db):
-    with open(USERS_DB_FILE, 'w', encoding='utf-8') as f:
+    path = get_users_db_path()
+    with open(path, 'w', encoding='utf-8') as f:
         json.dump(db, f, indent=4, ensure_ascii=False)
-
 
 def hash_password(password):
     """Retorna o hash SHA-256 da senha fornecida."""

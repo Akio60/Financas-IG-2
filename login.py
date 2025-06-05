@@ -81,24 +81,41 @@ class RoundedButton(tk.Canvas):
         if self.command:
             self.command()
 
-BASE_DIR = Path(__file__).resolve().parent
-USERS_DB_FILE = os.path.join(BASE_DIR, "users_db.json")
+def get_users_db_path():
+    appdata = os.getenv('APPDATA') or os.path.expanduser('~')
+    base_dir = os.path.join(appdata, 'Financas-IG')
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
+    return os.path.join(base_dir, "users_db.json")
+
+USERS_DB_FILE = get_users_db_path()
 
 def load_users_db():
+    if not os.path.exists(USERS_DB_FILE):
+        messagebox.showerror(
+            "Erro de Segurança",
+            f"O arquivo de usuários não foi encontrado em:\n{USERS_DB_FILE}\n\n"
+            "Por segurança, o sistema não pode ser iniciado sem este arquivo.\n"
+            "Solicite ao administrador o arquivo correto e coloque-o nesta pasta."
+        )
+        import sys
+        sys.exit(1)
     try:
-        if os.path.exists(USERS_DB_FILE):
-            with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        print(f"Arquivo de usuários não encontrado em: {USERS_DB_FILE}")
-        return {}
+        with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
     except Exception as e:
-        print(f"Erro ao carregar banco de usuários: {e}")
-        return {}
+        messagebox.showerror(
+            "Erro ao carregar usuários",
+            f"Erro ao ler o arquivo de usuários:\n{e}\n\n"
+            "O sistema será encerrado."
+        )
+        import sys
+        sys.exit(1)
 
 USERS_DB = load_users_db()
 
-os.chdir(BASE_DIR)
-ASSETS_PATH = BASE_DIR / "images" / "assets" / "login"
+os.chdir(Path(__file__).resolve().parent)
+ASSETS_PATH = Path(__file__).resolve().parent / "images" / "assets" / "login"
 
 def relative_to_assets(path: str) -> Path:
     return ASSETS_PATH / Path(path)

@@ -17,7 +17,10 @@ try:
 except ImportError:
     HAS_MPLCURSORS = False
 
-from login import BASE_DIR
+try:
+    from login import BASE_DIR
+except (ImportError, ModuleNotFoundError, AttributeError):
+    BASE_DIR = Path(__file__).parent.parent  # fallback to app root
 
 ASSETS_PATH = BASE_DIR / "images" / "assets" / "graphview"
 
