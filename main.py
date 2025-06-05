@@ -11,7 +11,9 @@ from app.main_app import App
 
 # Logger
 import logger_app  # nossa camada de logs
-
+from logger_app import fix_sheet_headers
+# Corrige os cabeçalhos da planilha para garantir que estejam atualizados
+fix_sheet_headers()
 def main():
     username, user_role = show_login()
 

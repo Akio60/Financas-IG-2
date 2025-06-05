@@ -4,7 +4,7 @@
 Mantém as listas de colunas, escopos de autenticação, variáveis de cor/status etc.
 """
 
-EMAIL_PASSWORD_ENV = 'oukz okul wlzp liwb'
+EMAIL_PASSWORD_ENV = 'xsug pydn qxmr ndjq'
 
 GOOGLE_SHEETS_SCOPE = [
     "https://spreadsheets.google.com/feeds",

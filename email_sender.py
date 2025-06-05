@@ -22,15 +22,17 @@ class EmailSender:
         Envio de email com suporte a anexos.
         attachment_path: Caminho do arquivo para anexar (opcional)
         """
-        thread = threading.Thread(target=self._send_email_thread, args=(recipient, subject, body, attachment_path))
-        thread.start()
+        # Para depuração, execute diretamente (remova threading para ver erros imediatamente)
+        return self._send_email_thread(recipient, subject, body, attachment_path)
 
     def _send_email_thread(self, recipient, subject, body, attachment_path=None):
         try:
             if not self.sender_password:
+                logger_app.log_error("Senha do remetente não configurada. Verifique a variável de ambiente.")
                 raise ValueError("Senha do remetente não configurada. Verifique a variável de ambiente.")
 
             if not recipient or not subject or not body:
+                logger_app.log_error("Recipient, subject e body são obrigatórios")
                 raise ValueError("Recipient, subject e body são obrigatórios")
 
             # Converte o body para HTML com formatação melhorada
@@ -75,14 +77,17 @@ class EmailSender:
                     subject=subject,
                     status="SUCCESS"
                 )
+                print(f"[DEBUG] Email enviado para {recipient} com assunto '{subject}'")
                 return True
             except Exception as e:
+                logger_app.log_error(f"Erro ao enviar email: {str(e)}")
+                print(f"[DEBUG] Falha ao enviar email para {recipient}: {str(e)}")
                 raise Exception(f"Erro ao enviar email: {str(e)}")
             finally:
                 if server:
                     server.quit()
-
         except Exception as e:
             error_msg = f"Erro ao enviar e-mail: {str(e)}"
             logger_app.log_error(error_msg)
+            print(f"[DEBUG] {error_msg}")
             return False

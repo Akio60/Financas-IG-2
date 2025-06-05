@@ -195,50 +195,79 @@ def get_logs(level: LogLevel = None, category: LogCategory = None,
     """
     try:
         all_logs = []
-        
+        expected_headers = ["Timestamp", "Level", "Category", "User", "Action", "Details", "IP", "Status"]
         # Determina quais worksheets verificar
         if level:
             sheets_to_check = [SHEETS[level.value]]
         else:
             sheets_to_check = SHEETS.values()
-        
         # Busca logs de cada worksheet
         for sheet_name in sheets_to_check:
             worksheet = get_worksheet(sheet_name)
             if not worksheet:
+                print(f"[DEBUG] Worksheet {sheet_name} não encontrada.")
                 continue
-                
             try:
-                records = worksheet.get_all_records()
+                if sheet_name in ["Info", "Errors"]:
+                    try:
+                        records = worksheet.get_all_records(expected_headers=expected_headers)
+                    except Exception as e:
+                        # Tenta sem expected_headers e loga o erro
+                        print(f"[DEBUG] Falha ao usar expected_headers na aba {sheet_name}: {e}")
+                        logger_msg = f"Cabeçalho da aba {sheet_name} está inconsistente. Corrija para: {expected_headers}"
+                        print(f"[DEBUG] {logger_msg}")
+                        logger_msg += f" | Erro: {e}"
+                        logging.error(logger_msg)
+                        records = worksheet.get_all_records()
+                else:
+                    records = worksheet.get_all_records()
+                print(f"[DEBUG] {len(records)} registros lidos da aba {sheet_name}")
             except Exception as e:
                 logging.error(f"Erro ao buscar registros de {sheet_name}: {e}")
+                print(f"[DEBUG] Erro ao buscar registros de {sheet_name}: {e}")
                 continue
             
             # Aplica filtros
             filtered_records = []
             for record in records:
+                # Ignora registros sem Timestamp ou Timestamp vazio
+                if not record.get('Timestamp') or not record['Timestamp'].strip():
+                    continue
                 if category and record.get('Category') != category.value:
                     continue
                 if user and record.get('User') != user:
                     continue
                 if start_date:
-                    record_date = datetime.datetime.strptime(record['Timestamp'].split()[0], '%d/%m/%Y')
-                    if record_date < datetime.datetime.strptime(start_date, '%d/%m/%Y'):
+                    try:
+                        record_date = datetime.datetime.strptime(record['Timestamp'].split()[0], '%d/%m/%Y')
+                        if record_date < datetime.datetime.strptime(start_date, '%d/%m/%Y'):
+                            continue
+                    except Exception:
                         continue
                 if end_date:
-                    record_date = datetime.datetime.strptime(record['Timestamp'].split()[0], '%d/%m/%Y')
-                    if record_date > datetime.datetime.strptime(end_date, '%d/%m/%Y'):
+                    try:
+                        record_date = datetime.datetime.strptime(record['Timestamp'].split()[0], '%d/%m/%Y')
+                        if record_date > datetime.datetime.strptime(end_date, '%d/%m/%Y'):
+                            continue
+                    except Exception:
                         continue
                 filtered_records.append(record)
             
             all_logs.extend(filtered_records)
         
-        # Ordena por timestamp e limita quantidade
-        all_logs.sort(key=lambda x: datetime.datetime.strptime(x['Timestamp'], '%d/%m/%Y %H:%M:%S'), reverse=True)
+        print(f"[DEBUG] Total de logs recuperados: {len(all_logs)}")
+        # Ordena apenas os registros com Timestamp válido
+        def safe_parse(log):
+            try:
+                return datetime.datetime.strptime(log['Timestamp'], '%d/%m/%Y %H:%M:%S')
+            except Exception:
+                return datetime.datetime.min
+        all_logs = [log for log in all_logs if log.get('Timestamp') and log['Timestamp'].strip()]
+        all_logs.sort(key=safe_parse, reverse=True)
         return all_logs[:limit]
-    
     except Exception as e:
         logging.error(f"Erro ao recuperar logs: {str(e)}")
+        print(f"[DEBUG] Erro ao recuperar logs: {str(e)}")
         return []
 
 def export_logs(filepath: str, format: str = 'json', **filters):
@@ -302,3 +331,15 @@ def search_by_keyword(keyword, **filters):
     except Exception as e:
         logging.error(f"Erro na busca por palavra-chave: {str(e)}")
         return []
+
+def fix_sheet_headers():
+    """Verifica e corrige os cabeçalhos das abas Info e Errors se necessário."""
+    expected_headers = ["Timestamp", "Level", "Category", "User", "Action", "Details", "IP", "Status"]
+    for sheet_name in ["Info", "Errors"]:
+        worksheet = get_worksheet(sheet_name)
+        if worksheet:
+            headers = worksheet.row_values(1)
+            if headers != expected_headers:
+                print(f"[DEBUG] Corrigindo cabeçalho da aba {sheet_name}: {headers} -> {expected_headers}")
+                worksheet.delete_rows(1)  # Remove o cabeçalho antigo
+                worksheet.insert_row(expected_headers, 1)
