@@ -41,7 +41,8 @@ def resource_path(relative_path):
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
 
 # Permite sobrescrever o caminho via variável de ambiente
-credentials_file = os.environ.get("TECHFORGE_CREDENTIALS") or resource_path("images/credentials.json")
+credentials_file = os.environ.get("TECHFORGE_CREDENTIALS") or resource_path("credentials.json")
+print(f"[DEBUG] logger_app.py usando credentials_file: {credentials_file}")
 
 # Variáveis globais para spreadsheet e worksheets
 _spreadsheet = None
@@ -52,20 +53,20 @@ _auth_timeout = 3500  # 58 minutos
 def reauthorize():
     """Reconecta com o Google Sheets se necessário"""
     global _spreadsheet, _last_auth_time
-    
     current_time = datetime.datetime.now()
     if (_last_auth_time is None or 
         (current_time - _last_auth_time).total_seconds() > _auth_timeout):
         try:
+            print(f"[DEBUG] Tentando autenticar com: {credentials_file}")
             creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_file, scope)
             client = gspread.authorize(creds)
             _spreadsheet = client.open_by_url(SPREADSHEET_URL)
             _last_auth_time = current_time
-            
-            # Limpa cache de worksheets quando reautoriza
             _worksheets.clear()
+            print("[DEBUG] Autenticação Google Sheets bem-sucedida.")
         except Exception as e:
             logging.error(f"Erro ao reautorizar: {str(e)}")
+            print(f"[DEBUG] Erro ao reautorizar: {str(e)}")
             return False
     return True
 
