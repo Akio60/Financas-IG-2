@@ -9,6 +9,7 @@ import json
 import webbrowser
 import hashlib
 from machine_manager import MachineManager
+from cryptography.fernet import Fernet
 
 class RoundedButton(tk.Canvas):
     def __init__(
@@ -90,6 +91,16 @@ def get_users_db_path():
 
 USERS_DB_FILE = get_users_db_path()
 
+FERNET_KEY = b'BlVdTzXqe19XBBpR3-VAZ4kfDtsrYCGUeVMKMWmcBhQ='  # Gere uma chave segura e coloque aqui
+
+def encrypt_data(data: str) -> bytes:
+    f = Fernet(FERNET_KEY)
+    return f.encrypt(data.encode('utf-8'))
+
+def decrypt_data(token: bytes) -> str:
+    f = Fernet(FERNET_KEY)
+    return f.decrypt(token).decode('utf-8')
+
 def load_users_db():
     if not os.path.exists(USERS_DB_FILE):
         messagebox.showerror(
@@ -101,8 +112,10 @@ def load_users_db():
         import sys
         sys.exit(1)
     try:
-        with open(USERS_DB_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        with open(USERS_DB_FILE, 'rb') as f:
+            encrypted = f.read()
+            decrypted = decrypt_data(encrypted)
+            return json.loads(decrypted)
     except Exception as e:
         messagebox.showerror(
             "Erro ao carregar usuários",
@@ -111,6 +124,18 @@ def load_users_db():
         )
         import sys
         sys.exit(1)
+
+def save_users_db(db):
+    try:
+        data = json.dumps(db, ensure_ascii=False, indent=4)
+        encrypted = encrypt_data(data)
+        with open(USERS_DB_FILE, 'wb') as f:
+            f.write(encrypted)
+    except Exception as e:
+        messagebox.showerror(
+            "Erro ao salvar usuários",
+            f"Erro ao salvar o arquivo de usuários:\n{e}"
+        )
 
 USERS_DB = load_users_db()
 

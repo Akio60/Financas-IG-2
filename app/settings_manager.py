@@ -7,6 +7,7 @@ from machine_manager import MachineManager
 from tkinter import messagebox
 import json
 import os
+from cryptography.fernet import Fernet
 import hashlib
 from datetime import datetime
 import logger_app
@@ -32,17 +33,50 @@ def get_users_db_path():
         os.makedirs(base_dir)
     return os.path.join(base_dir, "users_db.json")
 
+# Use a mesma chave Fernet do login.py
+FERNET_KEY = b'BlVdTzXqe19XBBpR3-VAZ4kfDtsrYCGUeVMKMWmcBhQ='  # Substitua pela sua chave real
+
+def decrypt_data(token: bytes) -> str:
+    f = Fernet(FERNET_KEY)
+    return f.decrypt(token).decode('utf-8')
+
+def encrypt_data(data: str) -> bytes:
+    f = Fernet(FERNET_KEY)
+    return f.encrypt(data.encode('utf-8'))
+
 def load_users_db():
     path = get_users_db_path()
     if os.path.exists(path):
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        try:
+            with open(path, 'rb') as f:
+                encrypted = f.read()
+                decrypted = decrypt_data(encrypted)
+                return json.loads(decrypted)
+        except Exception as e:
+            # Mensagem de erro amigável
+            import tkinter.messagebox as messagebox
+            messagebox.showerror(
+                "Erro ao carregar usuários",
+                f"Erro ao ler o arquivo de usuários:\n{e}\n\n"
+                "O sistema será encerrado."
+            )
+            import sys
+            sys.exit(1)
     return {}
 
 def save_users_db(db):
     path = get_users_db_path()
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(db, f, indent=4, ensure_ascii=False)
+    try:
+        data = json.dumps(db, ensure_ascii=False, indent=4)
+        encrypted = encrypt_data(data)
+        with open(path, 'wb') as f:
+            f.write(encrypted)
+    except Exception as e:
+        import tkinter.messagebox as messagebox
+        messagebox.showerror(
+            "Erro ao salvar usuários",
+            f"Erro ao salvar o arquivo de usuários:\n{e}"
+        )
 
 def hash_password(password):
     """Retorna o hash SHA-256 da senha fornecida."""
