@@ -154,7 +154,7 @@ def load_image(filename: str):
     return PhotoImage(file=str(path))
 
 # Para arquivos como credentials.json:
-CREDENTIALS_PATH = resource_path("images/credentials.json")
+CREDENTIALS_PATH = resource_path("credentials.json")
 
 def hash_password(password):
     """Retorna o hash SHA-256 da senha."""

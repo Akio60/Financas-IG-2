@@ -32,7 +32,7 @@ def main():
     logger_app.setup_logger()
 
     # Credenciais e URL da planilha
-    credentials_file = resource_path("images/credentials.json")
+    credentials_file = resource_path("credentials.json")
     sheet_url = "https://docs.google.com/spreadsheets/d/1sNwhkq0nCuTMRhs2HmahV88uIn9KiXY1ex0vlOwC0O8/edit?usp=sharing"  # Ajuste p/ sua planilha
 
     smtp_server = "smtp.gmail.com"
