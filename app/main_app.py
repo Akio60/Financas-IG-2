@@ -19,6 +19,12 @@ from .details_manager import DetailsManager
 from .statistics_manager import StatisticsManager
 from .settings_manager import SettingsManager
 
+def resource_path(relative_path):
+    """Retorna o caminho absoluto para recursos, compatível com PyInstaller."""
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 class App:
     def __init__(self, root, sheets_handler: GoogleSheetsHandler, email_sender: EmailSender, user_role, user_name):
         self.root = root
@@ -260,8 +266,8 @@ class App:
 
     def setup_welcome_screen(self):
         try:
-            img_ig = Image.open('images/logo_unicamp.png')
-            img_unicamp = Image.open('images/logo_ig.png')
+            img_ig = Image.open(resource_path(os.path.join('images', 'logo_unicamp.png')))
+            img_unicamp = Image.open(resource_path(os.path.join('images', 'logo_ig.png')))
 
             img_ig = img_ig.resize((100, 100), Image.LANCZOS)
             img_unicamp = img_unicamp.resize((100, 100), Image.LANCZOS)
@@ -428,7 +434,7 @@ class App:
             'Orientador':70,
             'Valor': 50,
             'Id': 50,
-            'Carimbo de data/hora_str': 55,
+            'Carimbo de data/hora': 55,
             'Ultima Atualizacao_str': 55,
             'Motivo da solicitação': 100,
             'Qual a agência de fomento?': 70,
@@ -441,7 +447,7 @@ class App:
             'Orientador':70,
             'Valor': 50,
             'Id': 50,
-            'Carimbo de data/hora_str': 55,
+            'Carimbo de data/hora': 55,
             'Ultima Atualizacao_str': 55,
             'Motivo da solicitação': 100,
             'Qual a agência de fomento?': 70,

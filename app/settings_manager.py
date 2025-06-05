@@ -28,7 +28,7 @@ WINDOW_SIZES = {
 
 def get_users_db_path():
     appdata = os.getenv('APPDATA') or os.path.expanduser('~')
-    base_dir = os.path.join(appdata, 'Financas-IG')
+    base_dir = os.path.join(appdata, 'techforge')
     if not os.path.exists(base_dir):
         os.makedirs(base_dir)
     return os.path.join(base_dir, "users_db.json")

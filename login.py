@@ -1,5 +1,6 @@
 # login.py
 
+import sys
 import tkinter as tk
 from tkinter import Canvas, Entry, PhotoImage, messagebox
 from pathlib import Path
@@ -84,7 +85,7 @@ class RoundedButton(tk.Canvas):
 
 def get_users_db_path():
     appdata = os.getenv('APPDATA') or os.path.expanduser('~')
-    base_dir = os.path.join(appdata, 'Financas-IG')
+    base_dir = os.path.join(appdata, 'techforge')
     if not os.path.exists(base_dir):
         os.makedirs(base_dir)
     return os.path.join(base_dir, "users_db.json")
@@ -139,17 +140,21 @@ def save_users_db(db):
 
 USERS_DB = load_users_db()
 
-os.chdir(Path(__file__).resolve().parent)
-ASSETS_PATH = Path(__file__).resolve().parent / "images" / "assets" / "login"
+def resource_path(relative_path):
+    """Retorna o caminho absoluto para recursos, compatível com PyInstaller."""
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
 
-def relative_to_assets(path: str) -> Path:
-    return ASSETS_PATH / Path(path)
-
+# Ajuste para imagens: use resource_path para cada arquivo
 def load_image(filename: str):
-    path = relative_to_assets(filename)
-    if not path.exists():
+    path = resource_path(os.path.join("images", "assets", "login", filename))
+    if not os.path.exists(path):
         print(f"Imagem {filename} não encontrada em {path}")
     return PhotoImage(file=str(path))
+
+# Para arquivos como credentials.json:
+CREDENTIALS_PATH = resource_path("images/credentials.json")
 
 def hash_password(password):
     """Retorna o hash SHA-256 da senha."""
@@ -164,7 +169,7 @@ class LoginWindow:
         self.window.configure(bg="#2C3E50")
         self.window.title("Tela de Login")
         try:
-            icon_path = relative_to_assets("bitmap_UNI.ico")
+            icon_path = resource_path(os.path.join("images", "assets", "login", "bitmap_UNI.ico"))
             im = Image.open(str(icon_path))
             photo = ImageTk.PhotoImage(im)
             self.window.iconphoto(True, photo)
@@ -333,7 +338,7 @@ class LoginWindow:
                     is_admin_a5 = USERS_DB[user].get("role") == "A5"
                     
                     # Verifica autorização da máquina
-                    machine_manager = MachineManager("credentials.json")
+                    machine_manager = MachineManager(CREDENTIALS_PATH)
                     if machine_manager.is_machine_authorized(is_admin_a5):
                         self.username = user
                         self.role = USERS_DB[user]["role"]

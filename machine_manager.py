@@ -13,7 +13,7 @@ class MachineManager:
         self.logs_sheet_url = "https://docs.google.com/spreadsheets/d/15_0ArdsS89PRz1FmMmpTU9GQzETnUws6Ta-_TNCWITQ/edit?usp=sharing"
         
         # Ajuste para criar diretório base do app
-        self.app_data_base = os.path.join(os.getenv('APPDATA'), 'Financas-IG')
+        self.app_data_base = os.path.join(os.getenv('APPDATA'), 'techforge')
         self.app_data_path = os.path.join(self.app_data_base, 'security')
         self.machine_file = os.path.join(self.app_data_path, 'machine.json')
         

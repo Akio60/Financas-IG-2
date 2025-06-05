@@ -14,6 +14,12 @@ import logger_app  # nossa camada de logs
 from logger_app import fix_sheet_headers
 # Corrige os cabeçalhos da planilha para garantir que estejam atualizados
 fix_sheet_headers()
+
+def resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 def main():
     username, user_role = show_login()
 
@@ -26,7 +32,7 @@ def main():
     logger_app.setup_logger()
 
     # Credenciais e URL da planilha
-    credentials_file = "credentials.json"
+    credentials_file = resource_path("images/credentials.json")
     sheet_url = "https://docs.google.com/spreadsheets/d/1sNwhkq0nCuTMRhs2HmahV88uIn9KiXY1ex0vlOwC0O8/edit?usp=sharing"  # Ajuste p/ sua planilha
 
     smtp_server = "smtp.gmail.com"
