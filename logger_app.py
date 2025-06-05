@@ -5,6 +5,7 @@ import logging
 import os
 import json
 from enum import Enum
+import sys
 
 # URL da planilha de logs
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/15_0ArdsS89PRz1FmMmpTU9GQzETnUws6Ta-_TNCWITQ/edit?usp=sharing"
@@ -30,9 +31,17 @@ class LogCategory(Enum):
     SECURITY = "SECURITY"
     EMAIL = "EMAIL"
 
+def resource_path(relative_path):
+    """Retorna o caminho absoluto para recursos, compatível com PyInstaller."""
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 # Configuração do escopo e credenciais
 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-credentials_file = "credentials.json"
+
+# Permite sobrescrever o caminho via variável de ambiente
+credentials_file = os.environ.get("TECHFORGE_CREDENTIALS") or resource_path("images/credentials.json")
 
 # Variáveis globais para spreadsheet e worksheets
 _spreadsheet = None
