@@ -445,65 +445,65 @@ class SettingsManager:
                 try:
                     # Validação dos campos
                     if not all([login_var.get(), name_var.get(), pass_var.get(), email_var.get()]):
+                        logger_app.log_error("Tentativa de cadastro de usuário com campos obrigatórios em branco.")
                         error_window = tb.Toplevel()
                         error_window.title("Erro")
                         error_window.attributes('-topmost', True)  # Força janela de erro ficar no topo
                         w, h = 300, 100
                         self._center_window(error_window, w, h)
                         self._prevent_resize_maximize(error_window)
-                        
                         tb.Label(error_window, text="Todos os campos são obrigatórios.", padding=20).pack()
                         tb.Button(error_window, text="OK", command=error_window.destroy, width=10).pack()
                         return
-                    
+
                     # Validação de email
                     email = email_var.get().strip()
                     if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+                        logger_app.log_error(f"Tentativa de cadastro de usuário com email inválido: {email}")
                         error_window = tb.Toplevel()
                         error_window.title("Erro")
                         error_window.attributes('-topmost', True)
                         w, h = 300, 100
                         self._center_window(error_window, w, h)
                         self._prevent_resize_maximize(error_window)
-                        
                         tb.Label(error_window, text="Email inválido!", padding=20).pack()
                         tb.Button(error_window, text="OK", command=error_window.destroy, width=10).pack()
                         return
-                    
+
                     if email != confirm_email_var.get().strip():
+                        logger_app.log_error("Tentativa de cadastro de usuário com emails não coincidentes.")
                         error_window = tb.Toplevel()
                         error_window.title("Erro")
                         error_window.attributes('-topmost', True)
                         w, h = 300, 100
                         self._center_window(error_window, w, h)
                         self._prevent_resize_maximize(error_window)
-                        
                         tb.Label(error_window, text="Os emails não coincidem!", padding=20).pack()
                         tb.Button(error_window, text="OK", command=error_window.destroy, width=10).pack()
                         return
 
                     # Validação de senha
                     if pass_var.get() != confirm_pass_var.get():
+                        logger_app.log_error("Tentativa de cadastro de usuário com senhas não coincidentes.")
                         error_window = tb.Toplevel()
                         error_window.title("Erro")
                         error_window.attributes('-topmost', True)
                         w, h = 300, 100
                         self._center_window(error_window, w, h)
                         self._prevent_resize_maximize(error_window)
-                        
                         tb.Label(error_window, text="As senhas não coincidem!", padding=20).pack()
                         tb.Button(error_window, text="OK", command=error_window.destroy, width=10).pack()
                         return
 
                     login = login_var.get().strip()
                     if login in db_users:
+                        logger_app.log_error(f"Tentativa de cadastro de usuário com login já existente: {login}")
                         error_window = tb.Toplevel()
                         error_window.title("Erro")
                         error_window.attributes('-topmost', True)
                         w, h = 300, 100
                         self._center_window(error_window, w, h)
                         self._prevent_resize_maximize(error_window)
-                        
                         tb.Label(error_window, text="Login já existe!", padding=20).pack()
                         tb.Button(error_window, text="OK", command=error_window.destroy, width=10).pack()
                         return
@@ -663,13 +663,13 @@ Este é um email automático de notificação.""",
                     ])
 
                 except Exception as e:
+                    logger_app.log_error(f"Erro inesperado ao cadastrar usuário: {str(e)}")
                     error_window = tb.Toplevel()
                     error_window.title("Erro")
                     error_window.attributes('-topmost', True)
                     w, h = 400, 150
                     self._center_window(error_window, w, h)
                     self._prevent_resize_maximize(error_window)
-                    
                     tb.Label(error_window, text=f"Erro ao cadastrar usuário:\n{str(e)}", 
                             padding=20, wraplength=350).pack()
                     tb.Button(error_window, text="OK", command=error_window.destroy, width=10).pack()

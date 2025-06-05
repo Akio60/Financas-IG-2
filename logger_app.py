@@ -196,11 +196,12 @@ def get_logs(level: LogLevel = None, category: LogCategory = None,
     try:
         all_logs = []
         expected_headers = ["Timestamp", "Level", "Category", "User", "Action", "Details", "IP", "Status"]
-        # Determina quais worksheets verificar
+        # Sempre busca em todas as abas se level não for especificado
         if level:
             sheets_to_check = [SHEETS[level.value]]
         else:
-            sheets_to_check = SHEETS.values()
+            # Inclui todas as abas: Info, Errors, Audit, Security
+            sheets_to_check = list(SHEETS.values())
         # Busca logs de cada worksheet
         for sheet_name in sheets_to_check:
             worksheet = get_worksheet(sheet_name)
