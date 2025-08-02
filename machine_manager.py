@@ -11,23 +11,16 @@ class MachineManager:
     def __init__(self, credentials_file):
         self.credentials_file = credentials_file
         self.logs_sheet_url = "https://docs.google.com/spreadsheets/d/15_0ArdsS89PRz1FmMmpTU9GQzETnUws6Ta-_TNCWITQ/edit?usp=sharing"
-        
-        # Ajuste para criar diretório base do app
-        self.app_data_base = os.path.join(os.getenv('APPDATA'), 'techforge')
+        self.app_data_base = os.path.join(os.getenv('APPDATA') or os.path.expanduser('~'), 'techforge')
         self.app_data_path = os.path.join(self.app_data_base, 'security')
-        self.machine_file = os.path.join(self.app_data_path, 'machine.json')
-        
-        # Cria estrutura de diretórios se não existir
+        self.machine_file = os.path.join(self.app_data_path, 'machine_serial.json')
+        # Cria diretórios se não existir
         for path in [self.app_data_base, self.app_data_path]:
             if not os.path.exists(path):
                 try:
-                    os.makedirs(path)
+                    os.makedirs(path, exist_ok=True)
                 except Exception as e:
                     logger_app.log_error(f"Erro ao criar diretório {path}: {str(e)}")
-
-        # Chave para encriptação local
-        self.key_b = Fernet.generate_key()
-        self.fernet_b = Fernet(self.key_b)
 
     def _get_machine_id(self):
         try:
@@ -47,9 +40,8 @@ class MachineManager:
         try:
             worksheet = sheet.worksheet('Serial')
         except:
-            worksheet = sheet.add_worksheet(title='Serial', rows="1000", cols="5")  # Alterado para 5 colunas
-            # Adiciona cabeçalho correto
-            worksheet.append_row(["Machine Info", "Key", "Hostname", "Last IP", "Added Date"])
+            worksheet = sheet.add_worksheet(title='Serial', rows="1000", cols="5")
+            worksheet.append_row(["Serial Key", "Encrypted Key", "Hostname", "Last IP", "Added Date"])
         return worksheet
 
     def _get_machine_info(self):
@@ -75,113 +67,121 @@ class MachineManager:
             logger_app.log_error(f"Erro ao obter informações da máquina: {str(e)}")
             return None
 
-    def register_machine(self):
+    def save_local_serial(self, serial_key, encrypted_key, hostname, ip):
+        data = {
+            "serial_key": serial_key,
+            "encrypted_key": encrypted_key,
+            "hostname": hostname,
+            "ip": ip
+        }
         try:
-            # Obtém informações da máquina atual
-            machine_info = self._get_machine_info()
-            if not machine_info:
-                return False
-            
-            # Verifica se máquina já está registrada na planilha
-            worksheet = self._get_serial_worksheet()
-            registered_machines = worksheet.get_all_records(expected_headers=["Machine Info", "Key", "Hostname", "Last IP", "Added Date"])
-            
-            # Procura e remove registro anterior se existir
-            row_index = 2  # Começa do 2 pois 1 é o cabeçalho
-            for machine in registered_machines:
-                if machine.get('Hostname') == machine_info['hostname']:
-                    # Remove o registro antigo
-                    worksheet.delete_rows(row_index)
-                    break
-                row_index += 1
-
-            # Gera nova chave e encripta dados
-            key_a = Fernet.generate_key()
-            fernet_a = Fernet(key_a)
-            
-            encrypted_a = fernet_a.encrypt(json.dumps(machine_info).encode()).decode()
-            encrypted_b = self.fernet_b.encrypt(json.dumps(machine_info).encode()).decode()
-            
-            # Adiciona novo registro na planilha
-            new_row = [
-                encrypted_a,           # Machine Info (encrypted)
-                key_a.decode(),       # Key
-                machine_info['hostname'],  # Hostname 
-                machine_info['ip'],       # Last IP
-                machine_info['date_added'] # Added Date
-            ]
-            worksheet.append_row(new_row)
-            
-            # Salva localmente
-            machine_data = {
-                "machine_info": encrypted_b,
-                "key": self.key_b.decode(),
-                "details": machine_info
-            }
-            
-            try:
-                with open(self.machine_file, 'w') as f:
-                    json.dump(machine_data, f, indent=4)
-            except Exception as e:
-                logger_app.log_error(f"Erro ao salvar arquivo local: {str(e)}")
-                return False
-
-            logger_app.append_log(
-                logger_app.LogLevel.INFO,
-                logger_app.LogCategory.SYSTEM,
-                "SYSTEM",
-                "MACHINE_REGISTER",
-                f"Máquina {machine_info['hostname']} registrada com sucesso"
-            )
-            
-            return True
-            
+            with open(self.machine_file, 'w') as f:
+                json.dump(data, f, indent=4)
         except Exception as e:
-            logger_app.log_error(f"Erro ao registrar máquina: {str(e)}")
-            return False
+            logger_app.log_error(f"Erro ao salvar serial local: {str(e)}")
 
-    def _validate_machine_data(self, data):
-        """Valida estrutura dos dados da máquina"""
-        required_fields = ["machine_info", "key", "details"]
-        detail_fields = ["hostname", "ip", "os", "username", "date_added", "machine_id"]
-        
-        try:
-            # Verifica campos principais
-            if not all(field in data for field in required_fields):
-                return False
-                
-            # Verifica campos de detalhes
-            details = data.get("details", {})
-            if not all(field in details for field in detail_fields):
-                return False
-                
-            return True
-        except:
-            return False
+    def load_local_serial(self):
+        if os.path.exists(self.machine_file):
+            try:
+                with open(self.machine_file, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger_app.log_error(f"Erro ao ler serial local: {str(e)}")
+        return None
+
+    def validate_and_register_serial(self, serial_key):
+        """
+        Valida a serial no Google Sheets. Se não estiver vinculada, vincula à máquina atual.
+        Retorna True se autorizado, False caso contrário.
+        """
+        worksheet = self._get_serial_worksheet()
+        all_serials = worksheet.get_all_records(expected_headers=["Serial Key", "Encrypted Key", "Hostname", "Last IP", "Added Date"])
+        machine_info = self._get_machine_info()
+        hostname = machine_info['hostname']
+        ip = machine_info['ip']
+
+        # Procura a serial
+        for idx, row in enumerate(all_serials, start=2):
+            if row['Serial Key'] == serial_key:
+                if not row['Hostname']:
+                    # Serial disponível, vincula à máquina atual
+                    from cryptography.fernet import Fernet
+                    key = Fernet.generate_key()
+                    fernet = Fernet(key)
+                    encrypted = fernet.encrypt(json.dumps(machine_info).encode()).decode()
+                    worksheet.update_cell(idx, 2, encrypted)
+                    worksheet.update_cell(idx, 3, hostname)
+                    worksheet.update_cell(idx, 4, ip)
+                    worksheet.update_cell(idx, 5, machine_info['date_added'])
+                    self.save_local_serial(serial_key, encrypted, hostname, ip)
+                    logger_app.append_log(
+                        logger_app.LogLevel.INFO,
+                        logger_app.LogCategory.SYSTEM,
+                        "SYSTEM",
+                        "SERIAL_REGISTER",
+                        f"Serial {serial_key} vinculada ao host {hostname}"
+                    )
+                    return True
+                else:
+                    # Serial já vinculada
+                    if row['Hostname'] == hostname and row['Last IP'] == ip:
+                        # Permite acesso se for a mesma máquina
+                        self.save_local_serial(serial_key, row['Encrypted Key'], hostname, ip)
+                        return True
+                    else:
+                        return False
+        # Serial não encontrada
+        return False
 
     def is_machine_authorized(self, is_admin_a5=False):
         if is_admin_a5:
             return True
-            
+        local = self.load_local_serial()
+        if not local:
+            return False
+        worksheet = self._get_serial_worksheet()
+        all_serials = worksheet.get_all_records(expected_headers=["Serial Key", "Encrypted Key", "Hostname", "Last IP", "Added Date"])
+        for row in all_serials:
+            if row['Serial Key'] == local['serial_key']:
+                if row['Hostname'] == local['hostname'] and row['Last IP'] == local['ip']:
+                    return True
+        return False
+
+    def get_registered_machines(self):
         try:
-            # Carrega dados locais
-            with open(self.machine_file, 'r') as f:
-                machine_data = json.load(f)
-            
-            # Obtem informações da máquina atual
-            local_machine_info = self._get_machine_info()
-            if not local_machine_info:
-                return False
-                
-            # Carrega dados da planilha
             worksheet = self._get_serial_worksheet()
-            registered_machines = worksheet.get_all_values()
             
-            # Remove cabeçalho
-            if len(registered_machines) > 0 and registered_machines[0][0] == "Machine Info":
-                registered_machines = registered_machines[1:]
+            # Define os cabeçalhos esperados
+            expected_headers = ["Machine Info", "Key", "Hostname", "Last IP", "Added Date"]
             
-            # Verifica cada máquina registrada
+            # Usa get_all_records com os cabeçalhos esperados
+            records = worksheet.get_all_records(expected_headers=expected_headers)
+            valid_rows = []
+            
+            for record in records:
+                if all(field.strip() for field in record.values()):  # Verifica se nenhum campo está vazio
+                    valid_rows.append([
+                        record["Machine Info"],
+                        record["Key"],
+                        record["Hostname"],
+                        record["Last IP"],
+                        record["Added Date"]
+                    ])
+            
+            return valid_rows
+            
+        except Exception as e:
+            logger_app.log_error(f"Erro ao listar máquinas: {str(e)}")
+            return []
+
+    def remove_machine(self, row_index):
+        try:
+            worksheet = self._get_serial_worksheet()
+            worksheet.delete_rows(row_index)
+            return True
+        except Exception as e:
+            logger_app.log_error(f"Erro ao remover máquina: {str(e)}")
+            return False
             for machine_info, key_a, hostname, ip, date in registered_machines:
                 try:
                     # Tenta descriptografar com a chave da planilha

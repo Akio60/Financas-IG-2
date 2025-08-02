@@ -178,6 +178,7 @@ class LoginWindow:
         
         self.username = None
         self.role = None
+        self.machine_manager = MachineManager(CREDENTIALS_PATH)
 
         self._build_ui()
         self.center_window()
@@ -336,10 +337,20 @@ class LoginWindow:
             if "hashed_password" in USERS_DB[user]:
                 if USERS_DB[user]["hashed_password"] == hash_password(password+user):
                     is_admin_a5 = USERS_DB[user].get("role") == "A5"
-                    
+                    # NOVO: Solicita serial se não houver vínculo local
+                    if not self.machine_manager.load_local_serial() and not is_admin_a5:
+                        serial_key = self._ask_serial_key()
+                        if not serial_key:
+                            messagebox.showerror("Erro", "Serial key obrigatória para o primeiro acesso.")
+                            return
+                        if not self.machine_manager.validate_and_register_serial(serial_key):
+                            messagebox.showerror(
+                                "Erro",
+                                "Serial inválida ou já utilizada em outro computador."
+                            )
+                            return
                     # Verifica autorização da máquina
-                    machine_manager = MachineManager(CREDENTIALS_PATH)
-                    if machine_manager.is_machine_authorized(is_admin_a5):
+                    if self.machine_manager.is_machine_authorized(is_admin_a5):
                         self.username = user
                         self.role = USERS_DB[user]["role"]
                         self.window.destroy()
@@ -352,6 +363,26 @@ class LoginWindow:
                     messagebox.showerror("Erro", "Senha incorreta!")
         else:
             messagebox.showerror("Erro", "Usuário não encontrado!")
+
+    def _ask_serial_key(self):
+        # Janela simples para pedir serial key
+        serial_win = tk.Toplevel(self.window)
+        serial_win.title("Serial Key")
+        serial_win.geometry("400x150")
+        serial_win.transient(self.window)
+        serial_win.grab_set()
+        tk.Label(serial_win, text="Informe sua Serial Key:").pack(pady=10)
+        serial_var = tk.StringVar()
+        entry = tk.Entry(serial_win, textvariable=serial_var, width=40)
+        entry.pack(pady=5)
+        entry.focus_set()
+        result = {"serial": None}
+        def confirm():
+            result["serial"] = serial_var.get().strip()
+            serial_win.destroy()
+        tk.Button(serial_win, text="Confirmar", command=confirm).pack(pady=10)
+        self.window.wait_window(serial_win)
+        return result["serial"]
 
     def run(self):
         self.window.mainloop()

@@ -962,55 +962,40 @@ Este é um email automático de notificação.""",
         LogViewer(self.app.root)
 
     def manage_machines(self):
-        """Interface para gerenciamento de máquinas autorizadas"""
-        
+        """Interface para gerenciamento de licenças/serial keys vinculadas"""
         mm_window = tb.Toplevel(self.app.root)
-        mm_window.title("Gerenciar Máquinas")
+        mm_window.title("Gerenciar Licenças/Seriais")
         w, h = WINDOW_SIZES['machine_manager']
         self._center_window(mm_window, w, h)
         self._prevent_resize_maximize(mm_window)
         mm_window.attributes('-topmost', True)
 
-        # Frame principal
         main_frame = tb.Frame(mm_window)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # Frame superior para título
         title_frame = tb.Frame(main_frame)
         title_frame.pack(fill="x", pady=(0,10))
-        
         title = tb.Label(
             title_frame, 
-            text="Lista de Máquinas Autorizadas",
+            text="Licenças/Seriais Vinculadas",
             font=("Helvetica", 12, "bold")
         )
         title.pack(pady=5)
 
-        # Frame para lista de máquinas
         list_frame = tb.Frame(main_frame)
         list_frame.pack(fill="both", expand=True)
 
-        # Treeview para listar máquinas
-        columns = ("Hostname", "IP", "Data Registro")
+        columns = ("Serial Key", "Hostname", "IP", "Data Registro")
         tree = tb.Treeview(list_frame, columns=columns, show="headings", height=10)
-        
         for col in columns:
             tree.heading(col, text=col)
-            if col == "Hostname":
-                tree.column(col, width=200)
-            elif col == "IP":
-                tree.column(col, width=150)
-            else:
-                tree.column(col, width=150)
-
+            tree.column(col, width=180 if col == "Serial Key" else 120)
         tree.pack(side="left", fill="both", expand=True)
 
-        # Scrollbar
         scrollbar = tb.Scrollbar(list_frame, orient="vertical", command=tree.yview)
         scrollbar.pack(side="right", fill="y")
         tree.configure(yscrollcommand=scrollbar.set)
 
-        # Frame para botões
         btn_frame = tb.Frame(main_frame)
         btn_frame.pack(fill="x", pady=10)
 
@@ -1018,105 +1003,106 @@ Este é um email automático de notificação.""",
             machine_manager = MachineManager("credentials.json")
             for i in tree.get_children():
                 tree.delete(i)
-            machines = machine_manager.get_registered_machines()
-            for machine in machines:
-                # Pega apenas hostname, IP e data
-                hostname = machine[2]
-                ip = machine[3]
-                date = machine[4]
-                tree.insert("", "end", values=(hostname, ip, date))
+            worksheet = machine_manager._get_serial_worksheet()
+            all_serials = worksheet.get_all_records(expected_headers=["Serial Key", "Encrypted Key", "Hostname", "Last IP", "Added Date"])
+            for row in all_serials:
+                serial = row['Serial Key']
+                hostname = row['Hostname']
+                ip = row['Last IP']
+                date = row['Added Date']
+                tree.insert("", "end", values=(serial, hostname, ip, date))
 
-        def register_current():
-            machine_manager = MachineManager("credentials.json")
-            if machine_manager.register_machine():
-                msg_window = tb.Toplevel()
-                msg_window.title("Sucesso")
-                msg_window.attributes('-topmost', True)  # Garante sempre visível
-                self._center_window(msg_window, 300, 100)
-                self._prevent_resize_maximize(msg_window)
-                
-                tb.Label(msg_window, text="Máquina registrada com sucesso!", padding=20).pack()
-                tb.Button(msg_window, text="OK", command=msg_window.destroy, width=10).pack()
-                
+        def add_serial_key():
+            dialog = tb.Toplevel(mm_window)
+            dialog.title("Adicionar Nova Serial Key")
+            dialog.geometry("400x180")
+            self._center_window(dialog, 400, 180)
+            self._prevent_resize_maximize(dialog)
+            dialog.attributes('-topmost', True)
+
+            tk.Label(dialog, text="Nova Serial Key:").pack(pady=10)
+            serial_var = tk.StringVar()
+            entry = tk.Entry(dialog, textvariable=serial_var, width=40)
+            entry.pack(pady=5)
+            entry.focus_set()
+
+            def confirm_add():
+                serial = serial_var.get().strip()
+                if not serial:
+                    messagebox.showerror("Erro", "Serial key não pode ser vazia.", parent=dialog)
+                    return
+                # Adiciona nova linha na planilha se não existir
+                machine_manager = MachineManager("credentials.json")
+                worksheet = machine_manager._get_serial_worksheet()
+                all_serials = worksheet.col_values(1)
+                if serial in all_serials:
+                    messagebox.showerror("Erro", "Serial key já existe.", parent=dialog)
+                    return
+                worksheet.append_row([serial, "", "", "", ""])
+                messagebox.showinfo("Sucesso", f"Serial key '{serial}' adicionada.", parent=dialog)
+                dialog.destroy()
                 refresh_list()
-            else:
-                error_window = tb.Toplevel()
-                error_window.title("Erro")
-                error_window.attributes('-topmost', True)  # Garante sempre visível
-                self._center_window(error_window, 300, 100)
-                self._prevent_resize_maximize(error_window)
-                
-                tb.Label(error_window, text="Falha ao registrar máquina", padding=20).pack()
-                tb.Button(error_window, text="OK", command=error_window.destroy, width=10).pack()
+
+            tb.Button(dialog, text="Adicionar", bootstyle=SUCCESS, command=confirm_add).pack(pady=15)
+            tb.Button(dialog, text="Cancelar", bootstyle=SECONDARY, command=dialog.destroy).pack()
 
         def remove_selected():
             selected = tree.selection()
             if not selected:
                 warn_window = tb.Toplevel()
                 warn_window.title("Aviso")
-                warn_window.attributes('-topmost', True)  # Garante sempre visível
+                warn_window.attributes('-topmost', True)
                 self._center_window(warn_window, 300, 100)
                 self._prevent_resize_maximize(warn_window)
-                
-                tb.Label(warn_window, text="Selecione uma máquina para remover", padding=20).pack()
+                tb.Label(warn_window, text="Selecione uma licença para remover", padding=20).pack()
                 tb.Button(warn_window, text="OK", command=warn_window.destroy, width=10).pack()
                 return
-                
-            # Janela de confirmação
+
             confirm_window = tb.Toplevel()
             confirm_window.title("Confirmar")
-            confirm_window.attributes('-topmost', True)  # Garante sempre visível
+            confirm_window.attributes('-topmost', True)
             self._center_window(confirm_window, 300, 150)
             self._prevent_resize_maximize(confirm_window)
-            
-            tb.Label(confirm_window, text="Deseja remover a máquina selecionada?", padding=20).pack()
-            
+            tb.Label(confirm_window, text="Deseja desvincular a licença selecionada?", padding=20).pack()
+
             def confirm_remove():
                 confirm_window.destroy()
-                idx = tree.index(selected[0]) + 2
+                idx = tree.index(selected[0]) + 2  # +2 pois cabeçalho é linha 1
                 machine_manager = MachineManager("credentials.json")
-                if machine_manager.remove_machine(idx):
-                    success_window = tb.Toplevel()
-                    success_window.title("Sucesso")
-                    success_window.attributes('-topmost', True)
-                    self._center_window(success_window, 300, 100)
-                    self._prevent_resize_maximize(success_window)
-                    
-                    tb.Label(success_window, text="Máquina removida com sucesso!", padding=20).pack()
-                    tb.Button(success_window, text="OK", command=success_window.destroy, width=10).pack()
-                    
-                    refresh_list()
-                else:
-                    error_window = tb.Toplevel()
-                    error_window.title("Erro")
-                    error_window.attributes('-topmost', True)
-                    self._center_window(error_window, 300, 100)
-                    self._prevent_resize_maximize(error_window)
-                    
-                    tb.Label(error_window, text="Falha ao remover máquina", padding=20).pack()
-                    tb.Button(error_window, text="OK", command=error_window.destroy, width=10).pack()
-        
-            btn_frame = tb.Frame(confirm_window)
-            btn_frame.pack(pady=10)
-            
-            tb.Button(btn_frame, text="Sim", bootstyle=DANGER, command=confirm_remove).pack(side=LEFT, padx=10)
-            tb.Button(btn_frame, text="Não", bootstyle=SECONDARY, command=confirm_window.destroy).pack(side=LEFT, padx=10)
+                worksheet = machine_manager._get_serial_worksheet()
+                # Limpa apenas os campos de vínculo, não remove a linha (mantém a serial para reuso)
+                worksheet.update_cell(idx, 2, "")  # Encrypted Key
+                worksheet.update_cell(idx, 3, "")  # Hostname
+                worksheet.update_cell(idx, 4, "")  # IP
+                worksheet.update_cell(idx, 5, "")  # Data
+                success_window = tb.Toplevel()
+                success_window.title("Sucesso")
+                success_window.attributes('-topmost', True)
+                self._center_window(success_window, 300, 100)
+                self._prevent_resize_maximize(success_window)
+                tb.Label(success_window, text="Licença desvinculada com sucesso!", padding=20).pack()
+                tb.Button(success_window, text="OK", command=success_window.destroy, width=10).pack()
+                refresh_list()
 
-        # Botões com novo estilo e tamanho
-        btn_register = tb.Button(
+            btns = tb.Frame(confirm_window)
+            btns.pack(pady=10)
+            tb.Button(btns, text="Sim", bootstyle=DANGER, command=confirm_remove).pack(side="left", padx=10)
+            tb.Button(btns, text="Não", bootstyle=SECONDARY, command=confirm_window.destroy).pack(side="left", padx=10)
+
+        btn_add = tb.Button(
             btn_frame,
-            text="Registrar Esta Máquina",
+            text="Adicionar Nova Serial Key",
             bootstyle=SUCCESS,
-            width=25,
-            command=register_current
+            width=30,
+            command=add_serial_key
         )
-        btn_register.pack(side="left", padx=5)
+        btn_add.pack(side="left", padx=5)
 
         btn_remove = tb.Button(
             btn_frame,
-            text="Remover Selecionada",
+            text="Desvincular Licença Selecionada",
             bootstyle=DANGER,
-            width=25,
+            width=30,
             command=remove_selected
         )
         btn_remove.pack(side="left", padx=5)
